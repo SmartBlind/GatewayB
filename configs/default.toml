@@ -1,0 +1,9 @@
+[server]
+host = "127.0.0.1"
+port = 3000
+
+[remote]
+address = "localhost"
+port = 1883
+client_id = "test-client"
+topic = "hello/world"
