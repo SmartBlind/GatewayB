@@ -1,44 +1,46 @@
 use std::sync::Arc;
 
 use axum::{Json, Router};
-use axum::extract::State;
-use axum::http::StatusCode;
+use axum::extract::{Query, State};
 use axum::routing::get;
 use serde::Deserialize;
-use tokio::sync::mpsc;
-use tokio::sync::mpsc::Sender;
+use sqlx::SqlitePool;
 use tower_http::cors::CorsLayer;
 
-use crate::mqtt_client;
+use crate::cache::{RemoteGatway, SensorData};
 use crate::settings::Settings;
-
-#[derive(Deserialize)]
-struct Input {
-    message: String,
-}
 
 #[derive(Clone)]
 struct RemoteState {
-    tx: Arc<Sender<String>>,
+    remote: Arc<RemoteGatway>,
+    pool: Arc<SqlitePool>,
 }
 
-async fn index(
-    Json(input): Json<Input>,
-    State(state): State<RemoteState>
-) -> Result<String, StatusCode> {
-    state.tx.send(input.message).await.unwrap();
+#[derive(Deserialize)]
+struct GetSensor {
+    id: i32,
+}
 
-    Ok("Message sent to MQTT".to_string())
+async fn get_timeline(
+    Query(params): Query<GetSensor>,
+    State(state): State<RemoteState>,
+) -> Json<Vec<SensorData>> {
+    let messages = sqlx::query_as!(SensorData, "SELECT id, payload, time FROM sensor_data", params.id)
+        .fetch_all(&state.pool).await.unwrap();
+
+    Json(messages)
 }
 
 pub async fn create_app(settings: &Arc<Settings>) -> Router {
-    let (tx, _rx) = mpsc::channel(32);
+    let pool = Arc::new(SqlitePool::connect(&settings.database.url).await
+        .expect("Fail to load database"));
 
-    mqtt_client::start_mqtt_client(settings.remote.clone(), tx.clone()).await.unwrap();
+    let mut remote = RemoteGatway::new(settings.gateway.clone(), &pool).await;
+    remote.connect_and_subscribe("cloudext/json/pr/fi/office/#".to_string());
 
     let remote = Router::new()
-        .route("/", get(index))
-        .with_state(RemoteState { tx: Arc::new(tx.clone()) });
+        .route("/timeline", get(get_timeline))
+        .with_state(RemoteState { pool, remote: Arc::new(remote) });
 
     Router::new()
         .nest("/remote", remote)

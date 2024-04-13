@@ -8,9 +8,9 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use crate::app::create_app;
 use crate::settings::Settings;
 
-mod mqtt_client;
-mod settings;
 mod app;
+mod cache;
+mod settings;
 
 #[tokio::main]
 async fn main() {

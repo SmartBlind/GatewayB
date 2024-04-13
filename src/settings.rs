@@ -19,14 +19,19 @@ pub struct Gateway {
     pub address: String,
     pub port: u16,
     pub client_id: String,
-    pub topic: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Database {
+    pub url: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Settings {
     pub server: Server,
     pub logger: Logger,
-    pub remote: Gateway,
+    pub gateway: Gateway,
+    pub database: Database,
 }
 
 impl Settings {
