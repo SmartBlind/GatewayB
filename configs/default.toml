@@ -2,8 +2,11 @@
 host = "127.0.0.1"
 port = 3000
 
+[logger]
+level = "debug"
+
 [remote]
 address = "localhost"
 port = 1883
-client_id = "test-client"
-topic = "hello/world"
+client_id = ""
+topic = "cloudext/json/pr/fi/office/{tuid}/#"

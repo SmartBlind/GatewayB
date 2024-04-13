@@ -4,15 +4,14 @@ use config::{Config, ConfigError, Environment, File};
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct Settings {
-    pub server: Server,
-    pub remote: Gateway,
-}
-
-#[derive(Debug, Clone, Deserialize)]
 pub struct Server {
     pub host: String,
     pub port: u16,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Logger {
+    pub level: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -21,6 +20,13 @@ pub struct Gateway {
     pub port: u16,
     pub client_id: String,
     pub topic: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Settings {
+    pub server: Server,
+    pub logger: Logger,
+    pub remote: Gateway,
 }
 
 impl Settings {
