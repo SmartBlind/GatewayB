@@ -11,4 +11,4 @@ port = 1883
 client_id = ""
 
 [database]
-uri = "sqlite::memory:"
+url = "sqlite::memory:"

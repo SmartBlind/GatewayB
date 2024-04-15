@@ -4,16 +4,15 @@ use axum::{Json, Router};
 use axum::extract::{Query, State};
 use axum::routing::get;
 use serde::Deserialize;
-use sqlx::SqlitePool;
 use tower_http::cors::CorsLayer;
 
-use crate::cache::{RemoteGatway, SensorData};
+use crate::cache::{Database, RemoteGateway, SensorData};
 use crate::settings::Settings;
 
 #[derive(Clone)]
 struct RemoteState {
-    remote: Arc<RemoteGatway>,
-    pool: Arc<SqlitePool>,
+    remote: Arc<RemoteGateway>,
+    database: Arc<Database>,
 }
 
 #[derive(Deserialize)]
@@ -25,22 +24,28 @@ async fn get_timeline(
     Query(params): Query<GetSensor>,
     State(state): State<RemoteState>,
 ) -> Json<Vec<SensorData>> {
-    let messages = sqlx::query_as!(SensorData, "SELECT id, payload, time FROM sensor_data", params.id)
-        .fetch_all(&state.pool).await.unwrap();
+    let messages: Vec<SensorData> = sqlx::query_as("SELECT id, payload, time FROM sensor_data where id = ?")
+        .bind(params.id)
+        .fetch_all(state.database.get_pool())
+        .await
+        .unwrap();
 
     Json(messages)
 }
 
 pub async fn create_app(settings: &Arc<Settings>) -> Router {
-    let pool = Arc::new(SqlitePool::connect(&settings.database.url).await
-        .expect("Fail to load database"));
+    let database = Arc::new(Database::new(&settings).await.expect("Fail to create database."));
+    database.create_sensor_data_table().await.expect("Fail to create sensor data table.");
 
-    let mut remote = RemoteGatway::new(settings.gateway.clone(), &pool).await;
-    remote.connect_and_subscribe("cloudext/json/pr/fi/office/#".to_string());
+    let remote = Arc::new(RemoteGateway::new(settings, &database).await.expect("Fail to create remote gateway."));
+    remote.connect_and_subscribe("cloudext/json/pr/fi/office/#".to_string()).await.expect("Fail to subscribe.");
 
     let remote = Router::new()
         .route("/timeline", get(get_timeline))
-        .with_state(RemoteState { pool, remote: Arc::new(remote) });
+        .with_state(RemoteState {
+            remote: Arc::clone(&remote),
+            database: Arc::clone(&database),
+        });
 
     Router::new()
         .nest("/remote", remote)

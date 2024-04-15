@@ -38,7 +38,7 @@ impl Settings {
     pub fn new() -> Result<Self, ConfigError> {
         let run_mode = env::var("RUN_MODE").unwrap_or("development".into());
 
-        let mut builder = Config::builder()
+        let builder = Config::builder()
             .add_source(File::with_name("configs/default"))
             .add_source(File::with_name(&format!("configs/{}", run_mode)).required(false))
             .add_source(Environment::default().separator("__"));
