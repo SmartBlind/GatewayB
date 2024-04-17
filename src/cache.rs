@@ -2,7 +2,7 @@ use std::error::Error;
 use std::sync::Arc;
 use chrono::{DateTime, Utc};
 
-use rumqttc::{AsyncClient, Event, EventLoop, MqttOptions, Packet, QoS};
+use rumqttc::{AsyncClient, Event, EventLoop, MqttOptions, Packet, QoS, TlsConfiguration, Transport};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use tokio::sync::Mutex;
@@ -57,6 +57,19 @@ impl RemoteGateway {
         let mut options = MqttOptions::new(&settings.gateway.client_id, &settings.gateway.address, settings.gateway.port);
         options.set_keep_alive(std::time::Duration::from_secs(5));
 
+        if let Some(auth) = settings.gateway.auth.clone() {
+            let client_cert = auth.certificate.into_bytes();
+            let client_key = auth.key.into_bytes();
+
+            let transport = Transport::Tls(TlsConfiguration::Simple {
+                ca: client_cert.clone(),
+                alpn: None,
+                client_auth: Some((client_cert, client_key)),
+            });
+
+            options.set_transport(transport);
+        }
+
         let (client, event_loop) = AsyncClient::new(options, 10);
 
         Ok(Self {
@@ -67,7 +80,7 @@ impl RemoteGateway {
     }
 
     /// A mqtt client port
-    /// https://support.haltian.com/knowledgebase/open-mqtt-data/
+    /// https://support.haltian.com/knowledgebase/how-to-connect-to-thingsee-iot-data-stream/
     pub async fn connect_and_subscribe(&self, topic: String) -> Result<(), Box<dyn Error>> {
         let client = self.client.lock().await;
         client.subscribe(topic, QoS::AtLeastOnce).await.unwrap();

@@ -34,11 +34,15 @@ async fn get_timeline(
 }
 
 pub async fn create_app(settings: &Arc<Settings>) -> Router {
-    let database = Arc::new(Database::new(&settings).await.expect("Fail to create database."));
+    let database = Arc::new(Database::new(settings).await.expect("Fail to create database."));
     database.create_sensor_data_table().await.expect("Fail to create sensor data table.");
 
     let remote = Arc::new(RemoteGateway::new(settings, &database).await.expect("Fail to create remote gateway."));
-    remote.connect_and_subscribe("cloudext/json/pr/fi/office/#".to_string()).await.expect("Fail to subscribe.");
+    if let Some(topic) = settings.gateway.topic.clone() {
+        let target = format!("{}/{}/{}/#", topic.prefix_env, topic.prefix_country, topic.customer_id);
+
+        remote.connect_and_subscribe(target).await.expect("Fail to subscribe.");
+    }
 
     let remote = Router::new()
         .route("/timeline", get(get_timeline))

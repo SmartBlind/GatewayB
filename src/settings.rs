@@ -19,6 +19,21 @@ pub struct Gateway {
     pub address: String,
     pub port: u16,
     pub client_id: String,
+    pub topic: Option<GatewayTopic>,
+    pub auth: Option<GatewayAuth>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct GatewayAuth {
+    pub certificate: String,
+    pub key: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct GatewayTopic {
+    pub prefix_env: String,
+    pub prefix_country: String,
+    pub customer_id: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]

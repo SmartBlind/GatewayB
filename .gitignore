@@ -14,5 +14,9 @@ Cargo.lock
 *.pdb
 
 # IDE
-/.idea
-/.vscode
+.idea
+.vscode
+
+# Ignore secure key and configs
+configs/*
+!configs/default.toml
