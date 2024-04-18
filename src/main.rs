@@ -6,11 +6,12 @@ use tokio::net::TcpListener;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::app::create_app;
-use crate::settings::Settings;
+use crate::configs::settings::Settings;
 
 mod app;
-mod cache;
-mod settings;
+mod configs;
+mod handles;
+mod services;
 
 #[tokio::main]
 async fn main() {

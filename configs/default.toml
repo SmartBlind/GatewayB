@@ -6,9 +6,14 @@ port = 3000
 level = "debug"
 
 [gateway]
-address = "localhost"
+address = "127.0.0.1"
 port = 1883
 client_id = "client-gatewayb"
+
+[gateway.topic]
+prefix_env = "prefix-env"
+prefix_country = "prefix-country"
+customer_id = "customer-id"
 
 [database]
 url = "sqlite::memory:"
