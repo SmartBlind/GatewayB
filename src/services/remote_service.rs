@@ -1,87 +1,57 @@
-use std::error::Error;
-use std::fs;
-use std::sync::Arc;
+use std::{error, fs, time};
+use std::sync::{Arc, Mutex};
 
-use chrono::{DateTime, Utc};
-use rumqttc::{AsyncClient, Event, EventLoop, MqttOptions, Packet, QoS, TlsConfiguration, Transport};
+use rumqttc::{AsyncClient, Event, MqttOptions, Packet, QoS, TlsConfiguration, Transport};
 use serde::{Deserialize, Serialize};
-use tokio::sync::Mutex;
 
-use crate::configs::settings::Settings;
+use crate::configs::settings::{GatewayTopic, Settings};
 use crate::configs::storage::Storage;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct SensorAirDataPayload {
-    payload: String,
+    #[serde(rename = "tsmTuid")]
+    tsm_tuid: String,
+    #[serde(rename = "tsmTs")]
+    tsm_ts: i32,
+    temp: f32,
 }
 
-#[derive(Serialize, Deserialize, sqlx::FromRow)]
-pub struct SensorData {
-    id: i32,
-    payload: String,
-    time: DateTime<Utc>,
-}
-
+#[derive(Clone)]
 pub struct RemoteService {
     client: Arc<Mutex<AsyncClient>>,
-    event_loop: Arc<Mutex<EventLoop>>,
+    topic: Arc<GatewayTopic>,
     storage: Arc<Storage>,
 }
 
 impl RemoteService {
-    pub async fn new(settings: &Arc<Settings>, storage: &Arc<Storage>) -> Result<Self, Box<dyn Error>> {
-        let mut options = MqttOptions::new(&settings.gateway.client_id, &settings.gateway.address, settings.gateway.port);
-        options.set_keep_alive(std::time::Duration::from_secs(5));
+    pub async fn new(settings: &Arc<Settings>, storage: &Arc<Storage>) -> Result<Self, Box<dyn error::Error>> {
+        let mut options = MqttOptions::new(
+            &settings.gateway.client_id,
+            &settings.gateway.address,
+            settings.gateway.port
+        );
+        options.set_keep_alive(time::Duration::from_secs(5));
 
-        if let Some(auth) = settings.gateway.auth.clone() {
-            let client_cert = fs::read(auth.cert_path)?;
-            let client_key = fs::read(auth.key_path)?;
-
-            let transport = Transport::Tls(TlsConfiguration::Simple {
+        if let Some(auth) = &settings.gateway.auth {
+            let (client_cert, client_key) = (fs::read(&auth.cert_path)?, fs::read(&auth.key_path)?);
+            let tls_config = TlsConfiguration::Simple {
                 ca: client_cert.clone(),
                 alpn: None,
                 client_auth: Some((client_cert, client_key)),
-            });
-
-            options.set_transport(transport);
+            };
+            options.set_transport(Transport::Tls(tls_config));
         }
 
-        let (client, event_loop) = AsyncClient::new(options, 10);
+        let (client, mut event_loop) = AsyncClient::new(options, 10);
 
-        Ok(Self {
-            client: Arc::new(Mutex::new(client)),
-            event_loop: Arc::new(Mutex::new(event_loop)),
-            storage: Arc::clone(storage),
-        })
-    }
-
-    /// A mqtt client port
-    /// https://support.haltian.com/knowledgebase/how-to-connect-to-thingsee-iot-data-stream/
-    pub async fn connect_and_subscribe(&self, topic: String) -> Result<(), Box<dyn Error>> {
-        let client = self.client.lock().await;
-        client.subscribe(topic, QoS::AtLeastOnce).await.unwrap();
-        drop(client);
-
-        // let client_clone = self.client.clone();
-        let event_loop_clone = self.event_loop.clone();
-        let storage_clone = self.storage.clone();
-
+        let storage_clone = Arc::clone(storage);
         tokio::spawn(async move {
-            let mut event_loop = event_loop_clone.lock().await;
             loop {
                 match event_loop.poll().await {
                     Ok(notification) => match notification {
                         Event::Incoming(Packet::Publish(publish)) => {
-                            let payload_str = String::from_utf8(publish.payload.to_vec()).unwrap();
-                            println!("{}", payload_str);
-                            if let Ok(data) = serde_json::from_str::<SensorAirDataPayload>(&payload_str) {
-                                // write to database
-                                sqlx::query("INSERT INTO sensor_data (payload, time) VALUES (?, ?)")
-                                    .bind(data.payload.to_string())
-                                    .bind(Utc::now())
-                                    .execute(storage_clone.get_pool())
-                                    .await
-                                    .unwrap();
+                            if let Err(e) = RemoteService::handle_message(&storage_clone, &publish.payload).await {
+                                tracing::error!("Error handling message: {}", e);
                             }
                         }
                         _ => {}
@@ -90,6 +60,41 @@ impl RemoteService {
                 }
             }
         });
+
+        Ok(Self {
+            client: Arc::new(Mutex::new(client)),
+            topic: Arc::new(settings.gateway.topic.clone()),
+            storage: Arc::clone(storage),
+        })
+    }
+
+    pub async fn subscribe(&self, sensor_id: &str) -> Result<(), Box<dyn error::Error>> {
+        let client = self.client.lock().unwrap();
+
+        let target = format!("cloudext/json/{}/{}/{}/{}/#",
+                             self.topic.prefix_env,
+                             self.topic.prefix_country,
+                             self.topic.customer_id,
+                             sensor_id);
+
+        client.subscribe(target, QoS::AtLeastOnce).await.map_err(Into::into)
+    }
+
+    /// A mqtt client port
+    /// https://support.haltian.com/knowledgebase/how-to-connect-to-thingsee-iot-data-stream/
+    async fn handle_message(storage: &Arc<Storage>, payload: &[u8]) -> Result<(), Box<dyn error::Error>> {
+        if let Ok(payload_str) = String::from_utf8(payload.to_vec()) {
+            if let Ok(data) = serde_json::from_str::<SensorAirDataPayload>(&payload_str) {
+                println!("{:?}", data);
+                // write to database
+                sqlx::query("INSERT INTO sensor_data (sensor_id, temp, time) VALUES (?, ?, ?)")
+                    .bind(&data.tsm_tuid)
+                    .bind(&data.temp)
+                    .bind(&data.tsm_ts)
+                    .execute(storage.get_pool())
+                    .await?;
+            }
+        }
 
         Ok(())
     }
