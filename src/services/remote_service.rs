@@ -1,8 +1,9 @@
 use std::{error, fs, time};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use rumqttc::{AsyncClient, Event, MqttOptions, Packet, QoS, TlsConfiguration, Transport};
 use serde::{Deserialize, Serialize};
+use tokio::sync::Mutex;
 
 use crate::configs::settings::{GatewayTopic, Settings};
 use crate::configs::storage::Storage;
@@ -69,7 +70,7 @@ impl RemoteService {
     }
 
     pub async fn subscribe(&self, sensor_id: &str) -> Result<(), Box<dyn error::Error>> {
-        let client = self.client.lock().unwrap();
+        let client = self.client.lock().await;
 
         let target = format!("cloudext/json/{}/{}/{}/{}/#",
                              self.topic.prefix_env,
@@ -77,7 +78,9 @@ impl RemoteService {
                              self.topic.customer_id,
                              sensor_id);
 
-        client.subscribe(target, QoS::AtLeastOnce).await.map_err(Into::into)
+        client.subscribe(target, QoS::AtLeastOnce).await?;
+
+        Ok(())
     }
 
     /// A mqtt client port
