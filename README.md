@@ -15,13 +15,6 @@ prefix_country = "{GROUPID PREFIX COUNTRY}"
 customer_id = "{GROUPID CUSTOMER ID}"
 
 [gateway.auth]
-certificate = """-----BEGIN CERTIFICATE-----
-{SECURITY CERTIFICATE}
------END CERTIFICATE-----
-"""
-key = """
------BEGIN EC PRIVATE KEY-----
-{SECURITY KEY}
------END EC PRIVATE KEY-----
-"""
+cert_path = "/etc/ssl/certs/{CLIENT CERTIFICATE}.pem"
+key_path = "/etc/ssl/private/{CLIENT KEY}.key"
 ```
