@@ -9,12 +9,9 @@ use rumqttd::{Broker, Config, ConnectionSettings, RouterConfig, ServerSettings, 
 use serde_json::{json, to_vec};
 use tokio::{task, time};
 
-use crate::configs::settings::{Gateway, Settings};
+use host::configs::settings::{Gateway, Settings};
 
-mod configs;
-
-#[tokio::main(flavor = "current_thread")]
-async fn main() -> Result<(), Box<dyn Error>> {
+pub async fn run() {
     let settings = Arc::new(Settings::new().expect("Failed to load settings."));
     let gateway = Arc::new(Mutex::new(settings.gateway.clone()));
 
@@ -48,7 +45,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
             Err(e) => {
                 println!("Error = {e:?}");
-                return Ok(());
             }
         }
     }

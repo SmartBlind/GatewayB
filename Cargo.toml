@@ -1,26 +1,19 @@
-[package]
-name = "gatewayb"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = [
+    "lumisync-host",
+    "lumisync-mock"
+]
+exclude = []
+resolver = "2"
 
-[dependencies]
-axum = "0.7"
-tokio = { version = "1", features = ["full"] }
-rumqttc = "0.24"
-rumqttd = { version = "0.19", optional = true }
-tower = "0.4"
-tower-http = { version = "0.5", features = ["cors"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-sqlx = { version = "0.7.4", features = ["runtime-tokio", "sqlite", "chrono"] }
+[workspace.dependencies]
 config = "0.14"
+serde = "1"
+serde_json = "1"
+tokio = "1"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = "0.3"
 
-[features]
-mock = ["rumqttd"]
-
-[[bin]]
-name = "mock-server"
-path = "src/mock.rs"
-required-features = ["mock"]
+[workspace.dependencies.host]
+package = "lumisync-host"
+path = "./lumisync-host"

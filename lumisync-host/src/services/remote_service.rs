@@ -21,7 +21,6 @@ pub struct SensorAirDataPayload {
 pub struct RemoteService {
     client: Arc<Mutex<AsyncClient>>,
     topic: Arc<GatewayTopic>,
-    storage: Arc<Storage>,
 }
 
 impl RemoteService {
@@ -51,9 +50,10 @@ impl RemoteService {
                 match event_loop.poll().await {
                     Ok(notification) => match notification {
                         Event::Incoming(Packet::Publish(publish)) => {
-                            if let Err(e) = RemoteService::handle_message(&storage_clone, &publish.payload).await {
-                                tracing::error!("Error handling message: {}", e);
-                            }
+                            Self::handle_message(&storage_clone, &publish.payload)
+                                .await
+                                .map_err(|e| tracing::error!("Error handling message: {}", e))
+                                .unwrap();
                         }
                         _ => {}
                     },
@@ -65,7 +65,6 @@ impl RemoteService {
         Ok(Self {
             client: Arc::new(Mutex::new(client)),
             topic: Arc::new(settings.gateway.topic.clone()),
-            storage: Arc::clone(storage),
         })
     }
 

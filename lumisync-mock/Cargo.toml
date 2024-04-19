@@ -1,0 +1,19 @@
+[package]
+name = "lumisync-mock"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "mock"
+path = "src/main.rs"
+
+[dependencies]
+host.workspace = true
+rumqttc = "0.24"
+rumqttd = "0.19"
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+tokio = { workspace = true, features = ["full"] }
