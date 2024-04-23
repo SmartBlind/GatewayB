@@ -1,7 +1,13 @@
 import { Graph, Setting, Window } from "./components/index.js";
 
+export const API = {
+    "setting": `${globalThis.__APP_API_URL__}/settings`,
+    "windows": `${globalThis.__APP_API_URL__}/windows`,
+    "sensors": `${globalThis.__APP_API_URL__}/sensors`,
+}
+
 /** @type {{[key: string]: { event: CustomEvent<{type: string}>, element: HTMLElement}}} */
-const NAV_TARGET = {
+export const NAV_TARGET = {
     "setting": {
         event: new CustomEvent("navigate", { detail: "setting" }),
         element: new Setting(),
@@ -17,12 +23,14 @@ const NAV_TARGET = {
 };
 
 class HomeDashboard extends HTMLElement {
+    #shadowRoot;
     #activePanel;
 
     constructor() {
         super();
-        this.attachShadow({ mode: "open" });
-        this.shadowRoot.append(this.createNavBar(), this.createPanel());
+
+        this.#shadowRoot = this.attachShadow({ mode: "open" });
+        this.#shadowRoot.append(this.createNavBar(), this.createPanel());
     }
 
     createNavBar() {

@@ -1,22 +1,53 @@
+import { API } from "../index.js";
+
 class Setting extends HTMLElement {
     connectedCallback() {
-        this.innerHTML = `
-          <div id="config-form">
-            <label for="user">Set Global User Keys:</label>
-            <input type="text" id="user" name="user">
+        const form = this.appendChild(this.createForm());
 
-            <label for="temperature">Set Global Temperature:</label>
-            <input type="number" id="temperature" name="temperature" min="10" max="30" step="0.5">
-
-            <button onclick="this.saveConfig()">Save Configuration</button>
-          </div>
-        `;
+        form.addEventListener("submit", this.saveConfig.bind(this));
     }
 
-    saveConfig() {
-        const temperature = this.querySelector("#temperature").value;
+    createForm() {
+        const form = document.createElement("form");
 
-        console.log('Configuration Saved:', { temperature });
+        form.innerHTML = `
+            <label for="user">Set User:</label>
+            <input type="text" name="user_id">
+
+            <label for="temp">Set Expected Temperature:</label>
+            <input type="number" name="light" min="0" max="20" step="1" value="6" />
+
+            <label for="temp">Set Expected Temperature:</label>
+            <input type="number" name="temperature" min="10" max="30" step="0.5" value="10" />
+
+            <input type="submit" value="Save Configuration" />
+        `;
+
+        return form;
+    }
+
+    async saveConfig(event) {
+        event.preventDefault();
+
+        const formData = Object.fromEntries(new FormData(event.target).entries());
+
+        try {
+            const response = await fetch(API.setting, {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+
+            if (response.ok) {
+                console.log("Configuration saved successfully!");
+            } else {
+                console.error("Failed to save configuration");
+            }
+        } catch (error) {
+            console.error("Internal error:", error);
+        }
     }
 }
 

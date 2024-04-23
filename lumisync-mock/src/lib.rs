@@ -6,7 +6,7 @@ use rumqttd::local::LinkTx;
 use serde_json::{json, to_vec};
 use tokio::time;
 
-use host::configs::settings::Settings;
+use server::configs::settings::Settings;
 use crate::broker::MockBroker;
 
 mod broker;

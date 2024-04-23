@@ -1,20 +1,26 @@
 import { Chart } from "chart.js/auto";
+import { API } from "../index.js";
 
 class Graph extends HTMLElement {
+    #chart;
+
     connectedCallback() {
-        this.innerHTML = `<canvas id="temperatureChart" width="400" height="200"></canvas>`;
-        this.renderChart();
+        const canvas = this.appendChild(document.createElement("canvas"));
+        canvas.width = 400;
+        canvas.height = 200;
+
+        this.renderChart(canvas);
+        this.fetchData("sensor001")
     }
 
-    renderChart() {
-        const ctx = this.querySelector('#temperatureChart');
-        new Chart(ctx, {
+    renderChart(ctx) {
+        this.#chart = new Chart(ctx, {
             type: "line",
             data: {
-                labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
+                labels: [],
                 datasets: [{
                     label: 'Temperature (°C)',
-                    data: [22, 19, 21, 24, 23, 22],
+                    data: [],
                     borderColor: 'rgba(255, 99, 132, 1)',
                     tension: 0.4
                 }]
@@ -23,6 +29,20 @@ class Graph extends HTMLElement {
                 responsive: true,
             }
         });
+    }
+
+    fetchData(id) {
+        const evtSource = new EventSource(`${API.sensors}/${id}`);
+        evtSource.onmessage = (event) => {
+            const sensorData = JSON.parse(event.data);
+            sensorData.forEach(data => {
+                this.#chart.data.labels.push(new Date(data.time).toLocaleTimeString());
+                this.#chart.data.datasets.forEach((dataset) => {
+                    dataset.data.push(data.temperature);
+                });
+            });
+            this.#chart.update();
+        };
     }
 }
 

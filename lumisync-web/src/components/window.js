@@ -1,16 +1,27 @@
+import { API } from "../index.js";
+
 class Window extends HTMLElement {
+    #container;
+
     connectedCallback() {
-        this.innerHTML = `<ul id="windowList">${this.generateList()}</ul>`;
+        this.#container = this.appendChild(document.createElement("ul"));
     }
 
-    generateList() {
-        const windows = [
-            { temperature: 15, state: 'Open' },
-            { temperature: 15, state: 'Closed' },
-            { temperature: 15, state: 'Closed' },
-            { temperature: 15, state: 'Open' }
-        ];
-        return windows.map((win, i) => `<li>${i}: ${win.temperature}, ${win.state}</li>`).join('');
+    createItem({ name } = {}) {
+        const item = document.createElement("li");
+
+        item.textContent = name;
+
+        this.#container.insertAdjacentElement("beforeend", item);
+    }
+
+    async fetchData() {
+        try {
+            const response = await fetch(`${API.windows}/1`)
+            const data = await response.json();
+            createItem(data.name);
+        } catch (error) {
+        }
     }
 }
 

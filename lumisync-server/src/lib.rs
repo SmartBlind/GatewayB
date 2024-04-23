@@ -11,6 +11,7 @@ use crate::configs::settings::Settings;
 use crate::configs::storage::Storage;
 use crate::handles::control_handle::{ControlState, execute_command};
 use crate::handles::sensor_handle::{get_sensor_data, SensorState};
+use crate::handles::setting_handle::{save_setting, SettingState};
 use crate::handles::user_handle::{create_user, get_user, UserState};
 use crate::handles::window_handle::{create_window, delete_window, get_window, update_window, WindowState};
 use crate::services::actuator_service::ActuatorService;
@@ -53,8 +54,9 @@ async fn create_app(settings: &Arc<Settings>) -> Router {
     let sensor_service = Arc::new(SensorService::new(settings, &storage)
         .expect("Fail to load remote gateway."));
 
-    let actuator_service = Arc::new(ActuatorService::new(settings)
-        .expect("Fail to load serial port."));
+    let actuator_service = ActuatorService::new(settings)
+        .map(|service| Arc::new(service))
+        .ok();
 
     let user = Router::new()
         .route("/", post(create_user))
@@ -63,12 +65,18 @@ async fn create_app(settings: &Arc<Settings>) -> Router {
             database: Arc::clone(&storage),
         });
 
+    let settings = Router::new()
+        .route("/", post(save_setting))
+        .with_state(SettingState {
+            database: Arc::clone(&storage),
+        });
+
     let windows = Router::new()
         .route("/", post(create_window))
         .route("/:sensor_id", get(get_window).put(update_window).delete(delete_window))
         .with_state(WindowState {
             sensor_service: Arc::clone(&sensor_service),
-            actuator_service: Arc::clone(&actuator_service),
+            actuator_service: actuator_service.clone(),
             database: Arc::clone(&storage),
         });
 
@@ -82,12 +90,13 @@ async fn create_app(settings: &Arc<Settings>) -> Router {
     let control = Router::new()
         .route("/:command", get(execute_command))
         .with_state(ControlState {
-            actuator_service: Arc::clone(&actuator_service),
+            actuator_service: actuator_service.clone(),
         });
 
     Router::new()
         .nest("/control", control)
         .nest("/users", user)
+        .nest("/settings", settings)
         .nest("/windows", windows)
         .nest("/sensors", sensors)
         .layer(CorsLayer::permissive())

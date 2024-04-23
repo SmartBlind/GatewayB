@@ -1,4 +1,4 @@
-use lumisync_host::run;
+use lumisync_server::run;
 
 #[tokio::main]
 async fn main() {

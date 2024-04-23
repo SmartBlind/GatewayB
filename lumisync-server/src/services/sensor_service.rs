@@ -11,10 +11,13 @@ use crate::configs::storage::Storage;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SensorAirDataPayload {
     #[serde(rename = "tsmTuid")]
-    tsm_tuid: String,
+    id: String,
     #[serde(rename = "tsmTs")]
-    tsm_ts: i32,
-    temp: f32,
+    time_stamp: i32,
+    #[serde(rename = "lght")]
+    light: i32,
+    #[serde(rename = "temp")]
+    temperature: f32,
 }
 
 pub struct SensorService {
@@ -88,10 +91,11 @@ impl SensorService {
             if let Ok(data) = serde_json::from_str::<SensorAirDataPayload>(&payload_str) {
                 println!("{:?}", data);
                 // write to database
-                sqlx::query("INSERT INTO sensor_data (sensor_id, temp, time) VALUES (?, ?, ?)")
-                    .bind(&data.tsm_tuid)
-                    .bind(&data.temp)
-                    .bind(&data.tsm_ts)
+                sqlx::query("INSERT INTO sensor_data (window_id, light, temperature, time) VALUES (?, ?, ?, ?)")
+                    .bind(&data.id)
+                    .bind(&data.light)
+                    .bind(&data.temperature)
+                    .bind(&data.time_stamp)
                     .execute(storage.get_pool())
                     .await?;
             }

@@ -8,7 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use rumqttd::{Broker, Config, ConnectionSettings, Notification, RouterConfig, ServerSettings, TlsConfig};
 use rumqttd::local::LinkTx;
 
-use host::configs::settings::Gateway;
+use server::configs::settings::Gateway;
 
 pub struct MockBroker {
     pub broker: Arc<Mutex<Broker>>,

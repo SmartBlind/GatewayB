@@ -1,5 +1,5 @@
 [package]
-name = "lumisync-host"
+name = "lumisync-server"
 version = "0.1.0"
 edition = "2021"
 
@@ -12,6 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 axum = "0.7"
+chrono = { version = "0.4", features = ["serde"] }
 config.workspace = true
 rumqttc = "0.24"
 serde = { workspace = true, features = ["derive"] }
@@ -19,6 +20,7 @@ serde_json.workspace = true
 serialport = "4.3"
 sqlx = { version = "0.7.4", features = ["runtime-tokio", "sqlite", "chrono"] }
 tokio = { workspace = true, features = ["full"] }
+tokio-stream = "0.1"
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors"] }
 tracing.workspace = true

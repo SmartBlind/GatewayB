@@ -2,22 +2,26 @@ use std::sync::Arc;
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
+use axum::Json;
 use axum::response::IntoResponse;
+use serde_json::json;
 
 use crate::services::actuator_service::ActuatorService;
 
 #[derive(Clone)]
 pub struct ControlState {
-    pub actuator_service: Arc<ActuatorService>,
+    pub actuator_service: Option<Arc<ActuatorService>>,
 }
 
 pub async fn execute_command(
     Path(command): Path<String>,
     State(state): State<ControlState>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    state.actuator_service.send(command.as_str())
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if let Some(service) = state.actuator_service {
+        service.send(command.as_str())
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    }
 
-    Ok(format!("Submit command: {}", command))
+    Ok(Json(json!({ "message": format!("Submit command: {}", command) })))
 }

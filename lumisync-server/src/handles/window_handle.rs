@@ -30,7 +30,7 @@ struct Window {
 #[derive(Clone)]
 pub struct WindowState {
     pub sensor_service: Arc<SensorService>,
-    pub actuator_service: Arc<ActuatorService>,
+    pub actuator_service: Option<Arc<ActuatorService>>,
     pub database: Arc<Storage>,
 }
 

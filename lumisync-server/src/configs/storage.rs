@@ -35,7 +35,8 @@ impl Storage {
             CREATE TABLE IF NOT EXISTS settings (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER UNIQUE NOT NULL,
-                temp REAL NOT NULL,
+                light INTEGER NOT NULL,
+                temperature REAL NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE);
 
             CREATE TABLE IF NOT EXISTS windows (
@@ -48,7 +49,8 @@ impl Storage {
             CREATE TABLE IF NOT EXISTS sensor_data (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 window_id TEXT NOT NULL,
-                temp REAL NOT NULL,
+                light INTEGER NOT NULL,
+                temperature REAL NOT NULL,
                 time TIMESTAMP NOT NULL,
                 FOREIGN KEY (window_id) REFERENCES windows (sensor_id) ON DELETE CASCADE);
             "#
