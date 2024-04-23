@@ -12,7 +12,6 @@ path = "src/main.rs"
 
 [dependencies]
 host.workspace = true
-rumqttc = "0.24"
 rumqttd = "0.19"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true

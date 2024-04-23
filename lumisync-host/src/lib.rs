@@ -1,4 +1,3 @@
-use std::env;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
@@ -10,8 +9,9 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::configs::settings::Settings;
 use crate::configs::storage::Storage;
-use crate::handles::sensor_handle::{get_sensor_data, register_sensor, RemoteState};
+use crate::handles::sensor_handle::{get_sensor_data, SensorState};
 use crate::handles::user_handle::{create_user, get_user, UserState};
+use crate::handles::window_handle::{create_window, delete_window, get_window, update_window, WindowState};
 use crate::services::remote_service::RemoteService;
 
 pub mod configs;
@@ -23,7 +23,7 @@ pub async fn run() {
 
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-            let app_name = env::var("CARGO_PKG_NAME").unwrap();
+            let app_name = env!("CARGO_PKG_NAME").replace('-', "_");
             let level = settings.logger.level.as_str();
 
             format!("{app_name}={level},tower_http={level}").into()
@@ -58,16 +58,23 @@ async fn create_app(settings: &Arc<Settings>) -> Router {
             database: Arc::clone(&storage),
         });
 
-    let sensors = Router::new()
-        .route("/", post(register_sensor))
-        .route("/:sensor_id", get(get_sensor_data))
-        .with_state(RemoteState {
+    let windows = Router::new()
+        .route("/", post(create_window))
+        .route("/:sensor_id", get(get_window).put(update_window).delete(delete_window))
+        .with_state(WindowState {
             remote: Arc::clone(&remote),
+            database: Arc::clone(&storage),
+        });
+
+    let sensors = Router::new()
+        .route("/:sensor_id", get(get_sensor_data))
+        .with_state(SensorState {
             database: Arc::clone(&storage),
         });
 
     Router::new()
         .nest("/users", user)
+        .nest("/windows", windows)
         .nest("/sensors", sensors)
         .layer(CorsLayer::permissive())
 }

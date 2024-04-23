@@ -1,7 +1,8 @@
 ## SetUp
 
-Before develop or publish, an override config file is need `configs/development.toml`
-or `configs/production.toml`
+Before development or publishing, an override config file is needed:
+`configs/development.toml` for development settings or
+`configs/production.toml` for production settings.
 
 ```toml
 [gateway]

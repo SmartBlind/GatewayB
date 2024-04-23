@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use sqlx::{Error, SqlitePool};
+use sqlx::sqlite::SqlitePoolOptions;
 
 use crate::configs::settings::Settings;
 
@@ -11,7 +12,11 @@ pub struct Storage {
 
 impl Storage {
     pub async fn new(settings: &Arc<Settings>) -> Result<Self, Error> {
-        let pool = SqlitePool::connect(&settings.database.url).await?;
+        let pool = SqlitePoolOptions::new()
+            .min_connections(1) // in memory db might drop connection when 0
+            .max_connections(10)
+            .connect(&settings.database.url)
+            .await?;
 
         Ok(Self { pool })
     }
@@ -33,17 +38,19 @@ impl Storage {
                 temp REAL NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE);
 
-            CREATE TABLE IF NOT EXISTS sensors (
-                id TEXT PRIMARY KEY,
+            CREATE TABLE IF NOT EXISTS windows (
+                id INTEGER PRIMARY KEY,
                 user_id INTEGER NOT NULL,
+                sensor_id TEXT UNIQUE,
+                name TEXT,
                 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE);
 
             CREATE TABLE IF NOT EXISTS sensor_data (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                sensor_id TEXT NOT NULL,
+                window_id TEXT NOT NULL,
                 temp REAL NOT NULL,
                 time TIMESTAMP NOT NULL,
-                FOREIGN KEY (sensor_id) REFERENCES sensors (id) ON DELETE CASCADE);
+                FOREIGN KEY (window_id) REFERENCES windows (sensor_id) ON DELETE CASCADE);
             "#
         )
             .execute(&self.pool)
