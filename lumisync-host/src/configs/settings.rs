@@ -43,11 +43,17 @@ pub struct Database {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct Embedded {
+    pub port_path: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct Settings {
     pub server: Server,
     pub logger: Logger,
     pub gateway: Gateway,
     pub database: Database,
+    pub embedded: Option<Embedded>,
 }
 
 impl Settings {

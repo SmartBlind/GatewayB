@@ -9,10 +9,12 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::configs::settings::Settings;
 use crate::configs::storage::Storage;
+use crate::handles::control_handle::{ControlState, execute_command};
 use crate::handles::sensor_handle::{get_sensor_data, SensorState};
 use crate::handles::user_handle::{create_user, get_user, UserState};
 use crate::handles::window_handle::{create_window, delete_window, get_window, update_window, WindowState};
-use crate::services::remote_service::RemoteService;
+use crate::services::actuator_service::ActuatorService;
+use crate::services::sensor_service::SensorService;
 
 pub mod configs;
 mod handles;
@@ -48,8 +50,11 @@ async fn create_app(settings: &Arc<Settings>) -> Router {
     let storage = Arc::new(Storage::new(settings).await.expect("Fail to create database."));
     storage.create_tables().await.expect("Fail to create tables.");
 
-    let remote = Arc::new(RemoteService::new(settings, &storage)
-        .await.expect("Fail to create remote gateway."));
+    let sensor_service = Arc::new(SensorService::new(settings, &storage)
+        .expect("Fail to load remote gateway."));
+
+    let actuator_service = Arc::new(ActuatorService::new(settings)
+        .expect("Fail to load serial port."));
 
     let user = Router::new()
         .route("/", post(create_user))
@@ -62,7 +67,8 @@ async fn create_app(settings: &Arc<Settings>) -> Router {
         .route("/", post(create_window))
         .route("/:sensor_id", get(get_window).put(update_window).delete(delete_window))
         .with_state(WindowState {
-            remote: Arc::clone(&remote),
+            sensor_service: Arc::clone(&sensor_service),
+            actuator_service: Arc::clone(&actuator_service),
             database: Arc::clone(&storage),
         });
 
@@ -72,7 +78,15 @@ async fn create_app(settings: &Arc<Settings>) -> Router {
             database: Arc::clone(&storage),
         });
 
+    // for debug
+    let control = Router::new()
+        .route("/:command", get(execute_command))
+        .with_state(ControlState {
+            actuator_service: Arc::clone(&actuator_service),
+        });
+
     Router::new()
+        .nest("/control", control)
         .nest("/users", user)
         .nest("/windows", windows)
         .nest("/sensors", sensors)

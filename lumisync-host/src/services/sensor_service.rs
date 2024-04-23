@@ -17,14 +17,13 @@ pub struct SensorAirDataPayload {
     temp: f32,
 }
 
-#[derive(Clone)]
-pub struct RemoteService {
+pub struct SensorService {
     client: Arc<Mutex<AsyncClient>>,
     topic: Arc<GatewayTopic>,
 }
 
-impl RemoteService {
-    pub async fn new(settings: &Arc<Settings>, storage: &Arc<Storage>) -> Result<Self, Box<dyn error::Error>> {
+impl SensorService {
+    pub fn new(settings: &Arc<Settings>, storage: &Arc<Storage>) -> Result<Self, Box<dyn error::Error>> {
         let mut options = MqttOptions::new(
             &settings.gateway.client_id,
             &settings.gateway.address,

@@ -9,7 +9,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::Error::Database;
 
 use crate::configs::storage::Storage;
-use crate::services::remote_service::RemoteService;
+use crate::services::actuator_service::ActuatorService;
+use crate::services::sensor_service::SensorService;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct WindowBody {
@@ -28,7 +29,8 @@ struct Window {
 
 #[derive(Clone)]
 pub struct WindowState {
-    pub remote: Arc<RemoteService>,
+    pub sensor_service: Arc<SensorService>,
+    pub actuator_service: Arc<ActuatorService>,
     pub database: Arc<Storage>,
 }
 
@@ -51,7 +53,7 @@ pub async fn create_window(
                 .await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-            state.remote.subscribe(&body.sensor_id)
+            state.sensor_service.subscribe(&body.sensor_id)
                 .await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
