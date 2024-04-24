@@ -1,3 +1,4 @@
+export { default as Debug } from "./debug.js";
 export { default as SensorGraph } from "./sensor-graph.js";
 export { default as Setting } from "./setting.js";
 export { default as Window } from "./window.js";

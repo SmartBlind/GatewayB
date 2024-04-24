@@ -2,7 +2,7 @@ use std::error::Error;
 use std::sync::Arc;
 use std::time::Duration;
 
-use serialport::SerialPort;
+use serialport::{available_ports, SerialPort};
 use tokio::sync::Mutex;
 
 use crate::configs::settings::Settings;
@@ -13,15 +13,21 @@ pub struct ActuatorService {
 
 impl ActuatorService {
     pub fn new(settings: &Arc<Settings>) -> Result<Self, Box<dyn Error>> {
-        if let Some(embedded) = &settings.embedded {
-            let port = serialport::new(&embedded.port_path, 9600)
-                .timeout(Duration::from_millis(10))
-                .open()?;
-
-            Ok(Self { port: Arc::new(Mutex::new(port)) })
+        let port_path = if let Some(embedded) = &settings.embedded {
+            embedded.port_path.clone()
         } else {
-            Err("No config serial port path found".into())
-        }
+            available_ports()?.first()
+                .map(|port| port.port_name.clone())
+                .ok_or("No config file found")?
+        };
+
+        tracing::debug!("Connect to port: {}", port_path);
+
+        let port = serialport::new(&port_path, 9600)
+            .timeout(Duration::from_millis(10))
+            .open()?;
+
+        Ok(Self { port: Arc::new(Mutex::new(port)) })
     }
 
     pub async fn send(&self, command: &str) -> Result<(), Box<dyn Error>> {

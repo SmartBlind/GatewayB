@@ -1,10 +1,15 @@
-import { Window } from "./index.js";
-import { API } from "../index.js";
+import Window from "./window.js";
+import { getWindows } from "../api.js";
 
 class WindowList extends HTMLElement {
     static observedAttributes = ["user-id"];
     #container;
     #windows = new Map();
+
+    constructor() {
+        super();
+        this.#container = this.appendChild(document.createElement("div"));
+    }
 
     get userId() {
         return this.getAttribute("user-id");
@@ -15,37 +20,29 @@ class WindowList extends HTMLElement {
     }
 
     connectedCallback() {
-        this.#container = this.appendChild(document.createElement("div"));
-        this.fetchData(this.userId).then();
+        this.updateContent(this.userId).then();
     }
 
     attributeChangedCallback(name, oldValue, newValue) {
         if (name === "user-id" && oldValue !== newValue) {
-            this.fetchData(this.userId).then();
+            this.updateContent(this.userId).then();
         }
     }
 
-    async fetchData(userId) {
+    async updateContent(userId) {
         if (!!userId) {
-            try {
-                const response = await fetch(`${API.windows}/user/${userId}`);
-                if (response.ok) {
-                    this.#container.textContent = null;
-                    const data = await response.json();
-
-                    for (const { id, ...props } of data) {
-                        let window = new Window();
-                        window.windowId = id;
-                        window.windowData = JSON.stringify(props);
-                        this.#windows.set(id, window); // TODO: reduex style insert
-                        this.#container.appendChild(window);
-                    }
+            this.innerHTML = null;
+            await getWindows(userId, data => {
+                for (const { id, ...props } of data) {
+                    let window = new Window();
+                    window.windowId = id;
+                    window.windowData = JSON.stringify(props);
+                    this.#windows.set(id, window); // TODO: reduex style insert
+                    this.appendChild(window);
                 }
-            } catch (error) {
-                console.error(error);
-            }
+            });
         } else {
-            this.#container.textContent = "Require setup user id";
+            this.innerText = "Require setup user id.";
         }
     }
 }

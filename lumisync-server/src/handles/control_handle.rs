@@ -21,7 +21,9 @@ pub async fn execute_command(
         service.send(command.as_str())
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    }
 
-    Ok(Json(json!({ "message": format!("Submit command: {}", command) })))
+        Ok(Json(json!({ "message": format!("Submit command: {}", command) })))
+    } else {
+        Err(StatusCode::NOT_FOUND)
+    }
 }

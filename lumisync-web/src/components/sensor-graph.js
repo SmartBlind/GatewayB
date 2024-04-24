@@ -1,8 +1,9 @@
 import { Chart } from "chart.js/auto";
-import { API } from "../index.js";
+import { streamSensorData } from "../api.js";
 
 class SensorGraph extends HTMLElement {
     static observedAttributes = ["sensor-id"];
+    #source;
     #chart;
 
     get sensorId() {
@@ -15,16 +16,14 @@ class SensorGraph extends HTMLElement {
 
     connectedCallback() {
         const canvas = this.appendChild(document.createElement("canvas"));
-        canvas.width = 400;
-        canvas.height = 200;
-
         this.renderChart(canvas);
-        this.fetchData(this.sensorId)
+        this.listen(this.sensorId)
     }
 
     attributeChangedCallback(name, oldValue, newValue) {
         if (name === "sensor-id" && oldValue !== newValue) {
-            this.cleanData();
+            this.dispose();
+            this.listen(this.sensorId);
         }
     }
 
@@ -46,24 +45,29 @@ class SensorGraph extends HTMLElement {
         });
     }
 
-    fetchData(id) {
-        const evtSource = new EventSource(`${API.sensors}/${id}`);
-        evtSource.onmessage = (event) => {
-            const sensorData = JSON.parse(event.data);
-            sensorData.forEach(data => {
-                this.#chart.data.labels.push(new Date(data.time).toLocaleTimeString());
-                this.#chart.data.datasets.forEach((dataset) => {
-                    dataset.data.push(data.temperature);
+    listen(sensorId) {
+        if (!!sensorId) {
+            this.#source = streamSensorData(sensorId, data => {
+                data.forEach(({ time, temperature }) => {
+                    this.#chart.data.labels.push(new Date(time).toLocaleTimeString());
+                    this.#chart.data.datasets.forEach((dataset) => {
+                        dataset.data.push(temperature);
+                    });
                 });
+                this.#chart.update();
             });
-            this.#chart.update();
-        };
+        }
     }
 
-    cleanData() {
-        this.#chart.data.labels.clear();
-        this.#chart.data.datasets.clear();
-        this.#chart.update();
+    dispose() {
+        if (!!this.#chart) {
+            this.#chart.data.labels = [];
+            this.#chart.data.datasets = [];
+            this.#chart.update();
+        }
+        if (!!this.#source) {
+            this.#source.close();
+        }
     }
 }
 
