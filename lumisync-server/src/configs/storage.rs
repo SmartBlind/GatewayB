@@ -44,6 +44,7 @@ impl Storage {
                 user_id INTEGER NOT NULL,
                 sensor_id TEXT UNIQUE,
                 name TEXT,
+                state REAL NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE);
 
             CREATE TABLE IF NOT EXISTS sensor_data (
@@ -51,7 +52,7 @@ impl Storage {
                 window_id TEXT NOT NULL,
                 light INTEGER NOT NULL,
                 temperature REAL NOT NULL,
-                time TIMESTAMP NOT NULL,
+                time DATETIME NOT NULL,
                 FOREIGN KEY (window_id) REFERENCES windows (sensor_id) ON DELETE CASCADE);
             "#
         )

@@ -1,27 +1,42 @@
-import { API } from "../index.js";
+// import { API } from "../index.js";
 
 class Window extends HTMLElement {
+    static observedAttributes = ["window-id", "window-data"];
     #container;
 
+    get windowId() { return this.getAttribute("window-id"); }
+
+    set windowId(value) { this.setAttribute("window-id", value); }
+
+    get windowData() { return JSON.parse(this.getAttribute("window-data")); }
+
+    set windowData(value) { this.setAttribute("window-data", value); }
+
     connectedCallback() {
-        this.#container = this.appendChild(document.createElement("ul"));
+        this.#container = this.appendChild(document.createElement("div"));
     }
 
-    createItem({ name } = {}) {
+    attributeChangedCallback(name, oldValue, newValue) {
+        if (oldValue === newValue) return;
+
+        // switch (name) {
+        //     case "window-id":
+        //         this.#elements.id.textContent = newValue;
+        //         break;
+        //     case "window-data":
+        //         this.#elements.count.textContent = newValue;
+        //         break;
+        // }
+    }
+
+    createElements({ name, data } = {}) {
         const item = document.createElement("li");
 
         item.textContent = name;
 
         this.#container.insertAdjacentElement("beforeend", item);
-    }
 
-    async fetchData() {
-        try {
-            const response = await fetch(`${API.windows}/1`)
-            const data = await response.json();
-            createItem(data.name);
-        } catch (error) {
-        }
+        return item;
     }
 }
 

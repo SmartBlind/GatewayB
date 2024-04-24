@@ -1,8 +1,17 @@
 import { Chart } from "chart.js/auto";
 import { API } from "../index.js";
 
-class Graph extends HTMLElement {
+class SensorGraph extends HTMLElement {
+    static observedAttributes = ["sensor-id"];
     #chart;
+
+    get sensorId() {
+        return this.getAttribute("sensor-id");
+    }
+
+    set sensorId(value) {
+        this.setAttribute("sensor-id", value);
+    }
 
     connectedCallback() {
         const canvas = this.appendChild(document.createElement("canvas"));
@@ -10,7 +19,13 @@ class Graph extends HTMLElement {
         canvas.height = 200;
 
         this.renderChart(canvas);
-        this.fetchData("sensor001")
+        this.fetchData(this.sensorId)
+    }
+
+    attributeChangedCallback(name, oldValue, newValue) {
+        if (name === "sensor-id" && oldValue !== newValue) {
+            this.cleanData();
+        }
     }
 
     renderChart(ctx) {
@@ -44,8 +59,14 @@ class Graph extends HTMLElement {
             this.#chart.update();
         };
     }
+
+    cleanData() {
+        this.#chart.data.labels.clear();
+        this.#chart.data.datasets.clear();
+        this.#chart.update();
+    }
 }
 
-customElements.define("lumisync-graph", Graph);
+customElements.define("lumisync-sensor-graph", SensorGraph);
 
-export default Graph;
+export default SensorGraph;

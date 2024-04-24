@@ -1,4 +1,4 @@
-import { Graph, Setting, Window } from "./components/index.js";
+import { Setting, WindowList } from "./components/index.js";
 
 export const API = {
     "setting": `${globalThis.__APP_API_URL__}/settings`,
@@ -12,18 +12,15 @@ export const NAV_TARGET = {
         event: new CustomEvent("navigate", { detail: "setting" }),
         element: new Setting(),
     },
-    "graph": {
-        event: new CustomEvent("navigate", { detail: "graph" }),
-        element: new Graph(),
-    },
     "window": {
         event: new CustomEvent("navigate", { detail: "window" }),
-        element: new Window(),
+        element: new WindowList(),
     },
 };
 
 class HomeDashboard extends HTMLElement {
     #shadowRoot;
+    #panels = new Map();
     #activePanel;
 
     constructor() {
@@ -31,6 +28,18 @@ class HomeDashboard extends HTMLElement {
 
         this.#shadowRoot = this.attachShadow({ mode: "open" });
         this.#shadowRoot.append(this.createNavBar(), this.createPanel());
+    }
+
+    connectedCallback() {
+        self.addEventListener("navigate", event => {
+            if (this.#activePanel) this.#activePanel.style.display = "none";
+            this.#activePanel = NAV_TARGET[event.detail].element;
+            this.#activePanel.style.display = "block";
+        });
+
+        self.addEventListener("setup", event => {
+            NAV_TARGET["window"].element.userId = event.detail["user_id"];
+        });
     }
 
     createNavBar() {
@@ -48,12 +57,6 @@ class HomeDashboard extends HTMLElement {
 
     createPanel() {
         const container = document.createElement("section");
-
-        self.addEventListener("navigate", event => {
-            if (this.#activePanel) this.#activePanel.style.display = "none";
-            this.#activePanel = NAV_TARGET[event.detail].element;
-            this.#activePanel.style.display = "block";
-        });
 
         container.append(
             ...Object.values(NAV_TARGET).map(({ element }, index) => {

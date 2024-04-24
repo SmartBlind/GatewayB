@@ -1,0 +1,14 @@
+{
+  "name": "smartblinds",
+  "private": true,
+  "workspaces": [
+    "lumisync-web"
+  ],
+  "scripts": {
+    "web": "npm run dev -w=lumisync-web"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Sieluna/SmartBlinds.git"
+  }
+}

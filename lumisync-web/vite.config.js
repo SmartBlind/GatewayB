@@ -7,7 +7,7 @@ export default defineConfig(async ({ command, mode }) => {
 
     return {
         define: {
-            __APP_API_URL__: JSON.stringify(env.APP_API_URL),
+            __APP_API_URL__: JSON.stringify(env.APP_API_URL ?? "http://localhost:3000"),
         },
     };
 });

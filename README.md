@@ -19,3 +19,20 @@ customer_id = "{GROUPID CUSTOMER ID}"
 cert_path = "/etc/ssl/certs/{CLIENT CERTIFICATE}.pem"
 key_path = "/etc/ssl/private/{CLIENT KEY}.key"
 ```
+
+## Development
+
+To start the server, you will need Rust installed on your machine. Then, run the
+following command:
+
+```bash
+cargo run --package lumisync-server --bin server
+```
+
+To work on the web application, you should have Node.js and npm installed. Then,
+run the following command:
+
+```bash
+npm install
+npm run web
+```
