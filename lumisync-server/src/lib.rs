@@ -51,7 +51,7 @@ async fn create_app(settings: &Arc<Settings>) -> Router {
     let storage = Arc::new(Storage::new(settings).await.expect("Fail to create database."));
     storage.create_tables().await.expect("Fail to create tables.");
 
-    let sensor_service = Arc::new(SensorService::new(settings, &storage)
+    let sensor_service = Arc::new(SensorService::new(settings, &storage).await
         .expect("Fail to load remote gateway."));
 
     let actuator_service = ActuatorService::new(settings)

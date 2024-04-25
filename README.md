@@ -36,3 +36,17 @@ run the following command:
 npm install
 npm run web
 ```
+
+## Sample migration
+
+```sql
+-- Insert sample data into 'users'
+INSERT INTO users (email) VALUES ('test@test.com');
+
+-- Insert sample data into 'settings'
+INSERT INTO settings (user_id, light, temperature) VALUES (1, 6, 22.5);
+
+-- Insert sample data into 'windows'
+INSERT INTO windows (user_id, sensor_id, name, state) VALUES (1, 'SENSOR01', 'Living Room', 0);
+INSERT INTO windows (user_id, sensor_id, name, state) VALUES (1, 'SENSOR02', 'Balcony', 0);
+```

@@ -35,7 +35,7 @@ pub struct SensorState {
 }
 
 pub async fn get_sensor_data(
-    Path(window_id): Path<String>,
+    Path(sensor_id): Path<String>,
     Query(range): Query<TimeRangeQuery>,
     State(state): State<SensorState>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
@@ -44,12 +44,12 @@ pub async fn get_sensor_data(
 
     let stream = wrappers::IntervalStream::new(interval(time::Duration::from_secs(3)))
         .then(move |_| {
-            let id = window_id.clone();
+            let id = sensor_id.clone();
             let database = Arc::clone(&state.database);
             let last_timestamp = Arc::clone(&last_timestamp);
             async move {
                 let last_time = *last_timestamp.lock().await;
-                let result = sqlx::query_as::<_, SensorData>("SELECT * FROM sensor_data where window_id = ? AND time > DATETIME(?) ORDER BY time")
+                let result = sqlx::query_as::<_, SensorData>("SELECT * FROM sensor_data where sensor_id = ? AND time > DATETIME(?) ORDER BY time")
                     .bind(&id)
                     .bind(last_time)
                     .fetch_all(database.get_pool())
@@ -71,11 +71,11 @@ pub async fn get_sensor_data(
 }
 
 pub async fn get_sensor_data_in_range(
-    Path(window_id): Path<String>,
+    Path(sensor_id): Path<String>,
     Query(range): Query<TimeRangeQuery>,
     State(state): State<SensorState>
 ) -> Result<impl IntoResponse, StatusCode> {
-    let mut conditions = vec!["window_id = ?"];
+    let mut conditions = vec!["sensor_id = ?"];
 
     if range.start.is_some() { conditions.push("time >= ?"); }
     if range.end.is_some() { conditions.push("time <= ?"); }
@@ -83,7 +83,7 @@ pub async fn get_sensor_data_in_range(
     let where_clause = conditions.join(" AND ");
 
     let key_point = sqlx::query_as::<_, SensorData>(&format!("SELECT * FROM sensor_data WHERE {where_clause} ORDER BY time", ))
-        .bind(&window_id)
+        .bind(&sensor_id)
         .bind(range.start)
         .bind(range.end)
         .fetch_all(state.database.get_pool())

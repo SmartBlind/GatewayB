@@ -1,5 +1,6 @@
 use std::{error, fs, time};
 use std::sync::Arc;
+use chrono::DateTime;
 
 use rumqttc::{AsyncClient, Event, MqttOptions, Packet, QoS, TlsConfiguration, Transport};
 use serde::{Deserialize, Serialize};
@@ -13,7 +14,7 @@ pub struct SensorAirDataPayload {
     #[serde(rename = "tsmTuid")]
     id: String,
     #[serde(rename = "tsmTs")]
-    time_stamp: i32,
+    time_stamp: i64,
     #[serde(rename = "lght")]
     light: i32,
     #[serde(rename = "temp")]
@@ -26,7 +27,7 @@ pub struct SensorService {
 }
 
 impl SensorService {
-    pub fn new(settings: &Arc<Settings>, storage: &Arc<Storage>) -> Result<Self, Box<dyn error::Error>> {
+    pub async fn new(settings: &Arc<Settings>, storage: &Arc<Storage>) -> Result<Self, Box<dyn error::Error>> {
         let mut options = MqttOptions::new(
             &settings.gateway.client_id,
             &settings.gateway.address,
@@ -45,6 +46,12 @@ impl SensorService {
         }
 
         let (client, mut event_loop) = AsyncClient::new(options, 10);
+
+        let target = format!("cloudext/json/{}/{}/{}/#",
+                             settings.gateway.topic.prefix_env,
+                             settings.gateway.topic.prefix_country,
+                             settings.gateway.topic.customer_id);
+        client.subscribe(target, QoS::AtLeastOnce).await?;
 
         let storage_clone = Arc::clone(storage);
         tokio::spawn(async move {
@@ -89,13 +96,13 @@ impl SensorService {
     async fn handle_message(storage: &Arc<Storage>, payload: &[u8]) -> Result<(), Box<dyn error::Error>> {
         if let Ok(payload_str) = String::from_utf8(payload.to_vec()) {
             if let Ok(data) = serde_json::from_str::<SensorAirDataPayload>(&payload_str) {
-                println!("{:?}", data);
+                tracing::debug!("Receive: {:?}", data);
                 // write to database
-                sqlx::query("INSERT INTO sensor_data (window_id, light, temperature, time) VALUES (?, ?, ?, ?)")
+                sqlx::query("INSERT INTO sensor_data (sensor_id, light, temperature, time) VALUES (?, ?, ?, DATETIME(?))")
                     .bind(&data.id)
                     .bind(&data.light)
                     .bind(&data.temperature)
-                    .bind(&data.time_stamp)
+                    .bind(DateTime::from_timestamp_millis(data.time_stamp))
                     .execute(storage.get_pool())
                     .await?;
             }

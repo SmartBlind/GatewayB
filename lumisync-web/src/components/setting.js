@@ -65,7 +65,7 @@ class Setting extends HTMLElement {
             <input type="text" name="user_id" id="user_id" placeholder="User Id / Email">
           </div>
           <div>
-            <label for="light">Set Expected Temperature:</label>
+            <label for="light">Set Expected Light Lumen:</label>
             <input type="number" name="light" id="light"
                     min="0" max="20" step="1" value="6" placeholder="Light Lux" />
           </div>

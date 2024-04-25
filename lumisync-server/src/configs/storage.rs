@@ -49,11 +49,11 @@ impl Storage {
 
             CREATE TABLE IF NOT EXISTS sensor_data (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                window_id TEXT NOT NULL,
+                sensor_id TEXT NOT NULL,
                 light INTEGER NOT NULL,
                 temperature REAL NOT NULL,
                 time DATETIME NOT NULL,
-                FOREIGN KEY (window_id) REFERENCES windows (sensor_id) ON DELETE CASCADE);
+                FOREIGN KEY (sensor_id) REFERENCES windows (sensor_id) ON DELETE CASCADE);
             "#
         )
             .execute(&self.pool)

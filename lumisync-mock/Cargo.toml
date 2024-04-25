@@ -11,7 +11,9 @@ name = "mock"
 path = "src/main.rs"
 
 [dependencies]
+chrono = "0.4"
 server.workspace = true
+rand = "0.8"
 rumqttd = "0.19"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
