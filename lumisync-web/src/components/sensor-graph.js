@@ -3,6 +3,7 @@ import { streamSensorData } from "../api.js";
 
 class SensorGraph extends HTMLElement {
     static observedAttributes = ["sensor-id"];
+    #dataset;
     #source;
     #chart;
 
@@ -28,14 +29,23 @@ class SensorGraph extends HTMLElement {
     }
 
     renderChart(ctx) {
+        this.#dataset = {
+            temperature: [],
+            light: []
+        };
         this.#chart = new Chart(ctx, {
             type: "line",
             data: {
                 labels: [],
                 datasets: [{
                     label: 'Temperature (°C)',
-                    data: [],
-                    borderColor: 'rgba(255, 99, 132, 1)',
+                    data: this.#dataset.temperature,
+                    borderColor: 'rgb(136,243,72)',
+                    tension: 0.4
+                }, {
+                    label: 'Light (lux)',
+                    data: this.#dataset.light,
+                    borderColor: 'rgb(255,219,99)',
                     tension: 0.4
                 }]
             },
@@ -48,11 +58,10 @@ class SensorGraph extends HTMLElement {
     listen(sensorId) {
         if (!!sensorId) {
             this.#source = streamSensorData(sensorId, data => {
-                data.forEach(({ time, temperature }) => {
+                data.forEach(({ time, light, temperature }) => {
                     this.#chart.data.labels.push(new Date(time).toLocaleTimeString());
-                    this.#chart.data.datasets.forEach((dataset) => {
-                        dataset.data.push(temperature);
-                    });
+                    this.#dataset.temperature.push(temperature);
+                    this.#dataset.light.push(light);
                 });
                 this.#chart.update();
             });
@@ -61,8 +70,11 @@ class SensorGraph extends HTMLElement {
 
     dispose() {
         if (!!this.#chart) {
+            this.#dataset = {
+                temperature: [],
+                light: []
+            };
             this.#chart.data.labels = [];
-            this.#chart.data.datasets = [];
             this.#chart.update();
         }
         if (!!this.#source) {

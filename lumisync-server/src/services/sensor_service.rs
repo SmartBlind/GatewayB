@@ -2,7 +2,7 @@ use std::{error, fs, time};
 use std::sync::Arc;
 use chrono::DateTime;
 
-use rumqttc::{AsyncClient, Event, MqttOptions, Packet, QoS, TlsConfiguration, Transport};
+use rumqttc::{AsyncClient, Event, EventLoop, MqttOptions, Packet, QoS, TlsConfiguration, Transport};
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
@@ -23,7 +23,9 @@ pub struct SensorAirDataPayload {
 
 pub struct SensorService {
     client: Arc<Mutex<AsyncClient>>,
+    event_loop: Arc<Mutex<EventLoop>>,
     topic: Arc<GatewayTopic>,
+    storage: Arc<Storage>,
 }
 
 impl SensorService {
@@ -45,17 +47,41 @@ impl SensorService {
             options.set_transport(Transport::Tls(tls_config));
         }
 
-        let (client, mut event_loop) = AsyncClient::new(options, 10);
+        let (client, event_loop) = AsyncClient::new(options, 10);
 
-        let target = format!("cloudext/json/{}/{}/{}/#",
-                             settings.gateway.topic.prefix_env,
-                             settings.gateway.topic.prefix_country,
-                             settings.gateway.topic.customer_id);
-        client.subscribe(target, QoS::AtLeastOnce).await?;
+        Ok(Self {
+            client: Arc::new(Mutex::new(client)),
+            event_loop: Arc::new(Mutex::new(event_loop)),
+            topic: Arc::new(settings.gateway.topic.clone()),
+            storage: Arc::clone(storage),
+        })
+    }
 
-        let storage_clone = Arc::clone(storage);
+    pub async fn subscribe(&self, sensor_id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+        let client = self.client.lock().await;
+
+        let target = if let Some(id) = sensor_id {
+            format!("cloudext/json/{}/{}/{}/{}/#",
+                    self.topic.prefix_env,
+                    self.topic.prefix_country,
+                    self.topic.customer_id,
+                    id)
+        } else {
+            format!("cloudext/json/{}/{}/{}/#",
+                    self.topic.prefix_env,
+                    self.topic.prefix_country,
+                    self.topic.customer_id)
+        };
+
+        client.subscribe(&target, QoS::AtLeastOnce).await?;
+
+        tracing::debug!("subscribe topic {}", &target);
+
+        let storage_clone = Arc::clone(&self.storage);
+        let event_loop_clone = Arc::clone(&self.event_loop);
         tokio::spawn(async move {
             loop {
+                let mut event_loop = event_loop_clone.lock().await;
                 match event_loop.poll().await {
                     Ok(notification) => match notification {
                         Event::Incoming(Packet::Publish(publish)) => {
@@ -70,23 +96,6 @@ impl SensorService {
                 }
             }
         });
-
-        Ok(Self {
-            client: Arc::new(Mutex::new(client)),
-            topic: Arc::new(settings.gateway.topic.clone()),
-        })
-    }
-
-    pub async fn subscribe(&self, sensor_id: &str) -> Result<(), Box<dyn error::Error>> {
-        let client = self.client.lock().await;
-
-        let target = format!("cloudext/json/{}/{}/{}/{}/#",
-                             self.topic.prefix_env,
-                             self.topic.prefix_country,
-                             self.topic.customer_id,
-                             sensor_id);
-
-        client.subscribe(target, QoS::AtLeastOnce).await?;
 
         Ok(())
     }

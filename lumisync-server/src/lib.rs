@@ -53,6 +53,8 @@ async fn create_app(settings: &Arc<Settings>) -> Router {
 
     let sensor_service = Arc::new(SensorService::new(settings, &storage).await
         .expect("Fail to load remote gateway."));
+    sensor_service.subscribe(None).await
+        .expect("Fail to subscribe topic");
 
     let actuator_service = ActuatorService::new(settings)
         .map(|service| Arc::new(service))

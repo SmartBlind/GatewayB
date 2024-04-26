@@ -44,10 +44,17 @@ sheet.replaceSync`
       padding: 0.3rem 1rem;
       border: 1px solid #ccc;
       border-radius: 5px;
-      background-color: #007bff;
       color: white;
       cursor: pointer;
       transition: background-color 0.3s;
+    }
+
+    & > .level {
+    }
+
+    & > .switch {
+      padding: 0.3rem 0.6rem;
+      background-color: #007bff;
       &:hover {
         background-color: #0056b3;
       }
@@ -57,7 +64,7 @@ sheet.replaceSync`
       padding: 0.3rem 0.6rem;
       background-color: red;
       &:hover {
-        background-color: #0056b3;
+        background-color: #b30000;
       }
     }
   }
@@ -116,14 +123,18 @@ class Window extends HTMLElement {
           <span class="state">${state}</span>
         `;
 
+        const processBar = document.createElement("progress");
+        processBar.className = "level"
+
         const switchBtn = document.createElement("button");
+        switchBtn.className = "switch"
         switchBtn.innerText = "Start";
 
         const calibrateBtn = document.createElement("button");
         calibrateBtn.className = "calibrate"
         calibrateBtn.innerHTML = "&#x21bb;";
 
-        summary.append(info, switchBtn, calibrateBtn);
+        summary.append(info, processBar, switchBtn, calibrateBtn);
     }
 
     updateSensors(sensorId) {

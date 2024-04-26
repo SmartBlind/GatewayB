@@ -60,10 +60,6 @@ pub async fn create_window(
                 .await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-            // state.sensor_service.subscribe(&body.sensor_id)
-            //     .await
-            //     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
             Ok(Json(window))
         },
         Err(Database(err)) if err.code() == Some(Borrowed("23000")) => Err(StatusCode::CONFLICT),
