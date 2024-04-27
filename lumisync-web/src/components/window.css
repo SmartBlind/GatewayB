@@ -1,0 +1,39 @@
+.container {
+  border: 1px solid #eee;
+  border-radius: 5px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  & > .summary {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+
+    & > .info {
+      flex: auto;
+
+      .state {
+        color: red;
+        padding: 0 0.5rem;
+
+        &::before {
+          content: "State: ";
+          color: black;
+        }
+      }
+
+      .name {
+        color: gray;
+        padding: 0 0.5rem;
+
+        &::before {
+          content: "Name: ";
+          color: black;
+        }
+      }
+    }
+  }
+}

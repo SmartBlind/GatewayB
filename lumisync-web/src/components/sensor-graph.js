@@ -3,22 +3,21 @@ import { streamSensorData } from "../api.js";
 
 class SensorGraph extends HTMLElement {
     static observedAttributes = ["sensor-id"];
-    #dataset;
+    #dataset = { temperature: [], light: [] };
     #source;
-    #chart;
 
-    get sensorId() {
-        return this.getAttribute("sensor-id");
+    constructor() {
+        super();
+        this.canvas = this.appendChild(document.createElement("canvas"));
     }
 
-    set sensorId(value) {
-        this.setAttribute("sensor-id", value);
-    }
+    get sensorId() { return this.getAttribute("sensor-id"); }
+
+    set sensorId(value) { this.setAttribute("sensor-id", value); }
 
     connectedCallback() {
-        const canvas = this.appendChild(document.createElement("canvas"));
-        this.renderChart(canvas);
-        this.listen(this.sensorId)
+        this.renderChart(this.canvas);
+        this.listen(this.sensorId);
     }
 
     attributeChangedCallback(name, oldValue, newValue) {
@@ -29,23 +28,19 @@ class SensorGraph extends HTMLElement {
     }
 
     renderChart(ctx) {
-        this.#dataset = {
-            temperature: [],
-            light: []
-        };
-        this.#chart = new Chart(ctx, {
+        this.chart = new Chart(ctx, {
             type: "line",
             data: {
                 labels: [],
                 datasets: [{
                     label: 'Temperature (°C)',
                     data: this.#dataset.temperature,
-                    borderColor: 'rgb(136,243,72)',
+                    borderColor: 'rgb(136, 243, 72)',
                     tension: 0.4
                 }, {
                     label: 'Light (lux)',
                     data: this.#dataset.light,
-                    borderColor: 'rgb(255,219,99)',
+                    borderColor: 'rgb(255, 219, 99)',
                     tension: 0.4
                 }]
             },
@@ -59,27 +54,24 @@ class SensorGraph extends HTMLElement {
         if (!!sensorId) {
             this.#source = streamSensorData(sensorId, data => {
                 data.forEach(({ time, light, temperature }) => {
-                    this.#chart.data.labels.push(new Date(time).toLocaleTimeString());
+                    this.chart.data.labels.push(new Date(time).toLocaleTimeString());
                     this.#dataset.temperature.push(temperature);
                     this.#dataset.light.push(light);
                 });
-                this.#chart.update();
+                this.chart.update();
             });
         }
     }
 
     dispose() {
-        if (!!this.#chart) {
-            this.#dataset = {
-                temperature: [],
-                light: []
-            };
-            this.#chart.data.labels = [];
-            this.#chart.update();
+        this.#dataset = { temperature: [], light: [] };
+
+        if (!!this.chart) {
+            this.chart.data.labels = [];
+            this.chart.update();
         }
-        if (!!this.#source) {
-            this.#source.close();
-        }
+
+        if (!!this.#source) this.#source.close();
     }
 }
 

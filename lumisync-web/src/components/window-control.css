@@ -1,0 +1,42 @@
+:host {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+input[type="range"] {
+  flex: auto;
+}
+
+input[type="number"] {
+  width: 3rem;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+button {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.switch {
+  width: 3.5rem;
+  background-color: #007bff;
+
+  &:hover {
+    background-color: #0056b3;
+  }
+}
+
+.calibrate {
+  background-color: red;
+
+  &:hover {
+    background-color: #b30000;
+  }
+}

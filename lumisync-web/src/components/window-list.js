@@ -3,21 +3,11 @@ import { getWindows } from "../api.js";
 
 class WindowList extends HTMLElement {
     static observedAttributes = ["user-id"];
-    #container;
     #windows = new Map();
 
-    constructor() {
-        super();
-        this.#container = this.appendChild(document.createElement("div"));
-    }
+    get userId() { return this.getAttribute("user-id"); }
 
-    get userId() {
-        return this.getAttribute("user-id");
-    }
-
-    set userId(value) {
-        this.setAttribute("user-id", value);
-    }
+    set userId(value) { this.setAttribute("user-id", value); }
 
     connectedCallback() {
         this.updateContent(this.userId).then();
