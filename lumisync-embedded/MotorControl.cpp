@@ -1,44 +1,82 @@
 #include "MotorControl.h"
 
-const int MotorControl::fullSteps[4][4] = {
+const int MotorControl::fullSteps[MotorControl::stepCount][4] = {
   { HIGH, HIGH, LOW, LOW },
   { LOW, HIGH, HIGH, LOW },
   { LOW, LOW, HIGH, HIGH },
   { HIGH, LOW, LOW, HIGH }
 };
 
-MotorControl::MotorControl(int* pins)
-  : stepPins(pins) {}
+MotorControl::MotorControl(int* pins, int minStep, int maxStep)
+  : m_stepPins(pins), m_minStep(minStep), m_maxStep(maxStep) {}
+
+void MotorControl::update() {
+  unsigned long currentTime = millis();
+  if (m_motorActive) {
+    if ((m_clockwise  && m_currentStep >= m_targetStep) ||
+        (!m_clockwise && m_currentStep <= m_targetStep)) {
+      deactivateMotor();
+    } else {
+      if (currentTime - m_lastStepTime >= stepDelay) {
+        stepMotor();
+        m_lastStepTime = currentTime;
+      }
+    }
+  }
+}
 
 void MotorControl::activateMotor(bool directionClockwise) {
   for (int i = 0; i < 4; i++) {
-    pinMode(stepPins[i], OUTPUT);
-    digitalWrite(stepPins[i], LOW);
+    pinMode(m_stepPins[i], OUTPUT);
+    digitalWrite(m_stepPins[i], LOW);
   }
-  clockwise = directionClockwise;
-  motorActive = true;
-  lastPosition = currentStep;
+  m_clockwise = directionClockwise;
+  m_motorActive = true;
+  m_lastPosition = m_currentStep;
 }
 
 void MotorControl::deactivateMotor() {
   for (int i = 0; i < 4; i++) {
-    pinMode(stepPins[i], INPUT);
+    pinMode(m_stepPins[i], INPUT);
   }
-  motorActive = false;
-  lastPosition = currentStep;
+  m_motorActive = false;
+  m_lastPosition = m_currentStep;
 }
 
 void MotorControl::stepMotor() {
-  // Calculate the number of step sequences
-  int stepCount = sizeof(fullSteps) / sizeof(fullSteps[0]);
   // Calculate step index for motion
-  int stepIndex = clockwise ? currentStep % stepCount : (stepCount - 1) - (currentStep % stepCount);
+  int stepIndex = m_clockwise ? m_currentStep % stepCount : (stepCount - 1) - (m_currentStep % stepCount);
 
   // Output the step sequence to the motor driver
   for (int i = 0; i < 4; i++) {
-    digitalWrite(stepPins[i], fullSteps[stepIndex][i]);
+    digitalWrite(m_stepPins[i], fullSteps[stepIndex][i]);
   }
 
   // Adjust the current step based on the direction
-  currentStep += clockwise ? 1 : -1;
+  m_currentStep += m_clockwise ? 1 : -1;
+}
+
+void MotorControl::moveTo(int targetStep) {
+  m_targetStep = constrain(targetStep, m_minStep, m_maxStep);
+  if (m_currentStep != m_targetStep) {
+    activateMotor(m_targetStep > m_currentStep);
+  }
+}
+
+void MotorControl::moveToSync(int targetStep) {
+  m_targetStep = constrain(targetStep, m_minStep, m_maxStep);
+
+  if (m_currentStep == m_targetStep) return;
+
+  activateMotor(m_targetStep > m_currentStep);
+
+  while (m_motorActive && m_currentStep != m_targetStep) {
+    stepMotor();
+    delay(stepDelay);
+    if (m_stepCallback != nullptr) {
+      m_stepCallback(m_currentStep);
+    }
+  }
+
+  deactivateMotor();
 }
