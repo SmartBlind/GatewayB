@@ -15,7 +15,7 @@ void calibrateSync(int defaultStep = 1250) {
 }
 
 void onStep(int currentStep) {
-  Serial.println("{\"currentStep\": " + String(currentStep) + "}");
+  Serial.println("{\"state\": " + String((float(step) / stepLimit) * 2.0 - 1.0) + "}");
 }
 
 void setup() {
@@ -32,11 +32,10 @@ void loop() {
 
     if (command.startsWith("SET ")) {
       targetAngle = constrain(command.substring(4).toFloat(), -1.0, 1.0);
-      motor.moveTo((int)((targetAngle + 1.0) / 2.0 * stepLimit));
+      motor.moveTo((int)((targetAngle + 1.0) / 2.0 * stepLimit));               // map [-1.0, 1.0] to [0, stepLimit]
     } else if (command == "STOP") {
       motor.deactivateMotor();
-    }
-    else if (command == "CALI") {
+    } else if (command == "CALI") {
       calibrateSync();                                                          // Perform calibration sequence: 3000 steps clockwise, then 1500 steps counterclockwise
     }
   }
