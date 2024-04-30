@@ -22,14 +22,24 @@ key_path = "/etc/ssl/private/{CLIENT KEY}.key"
 
 ## Development
 
-To start the server, you will need Rust installed on your machine. Then, run the
+**Option 1: One click start**
+
+For develop frontend or embedded side, could try one click start:
+
+```bash
+python run.py
+```
+
+**Option 2: Manual start**
+
+To start the server, you will need `Rust` installed on your machine. Then, run the
 following command:
 
 ```bash
 cargo run --package lumisync-server --bin server
 ```
 
-To work on the web application, you should have Node.js and npm installed. Then,
+To work on the web application, you should have `Node.js(LTS version)` and `npm` installed. Then,
 run the following command:
 
 ```bash
