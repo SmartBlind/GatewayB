@@ -57,8 +57,38 @@ export async function getWindows(userId, callback) {
     }
 }
 
+export async function getSensors(groupId, callback) {
+    try {
+        const response = await fetch(`${API.sensors}/${groupId}`);
+
+        if (response.ok) {
+            callback?.(await response.json());
+            console.log("Get sensors successfully!");
+        } else {
+            console.error("Fail to get sensors.");
+        }
+    } catch (error) {
+        console.error("Internal error:", error);
+    }
+}
+
+export async function getSensorData(sensorId, callback) {
+    try {
+        const response = await fetch(`${API.sensors}/data/${sensorId}`);
+
+        if (response.ok) {
+            callback?.(await response.json());
+            console.log("Get sensor data successfully!");
+        } else {
+            console.error("Fail to get sensor data.");
+        }
+    } catch (error) {
+        console.error("Internal error:", error);
+    }
+}
+
 export function streamSensorData(sensorId, callback) {
-    const eventSource = new EventSource(`${API.sensors}/${sensorId}`);
+    const eventSource = new EventSource(`${API.sensors}/data/sse/${sensorId}`);
 
     eventSource.onmessage = (event) => callback?.(JSON.parse(event.data));
 

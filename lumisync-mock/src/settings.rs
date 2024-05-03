@@ -1,15 +1,8 @@
 use std::env;
-use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use config::{Config, ConfigError, Environment, File};
 use serde::Deserialize;
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct Server {
-    pub host: String,
-    pub port: u16,
-}
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Logger {
@@ -21,14 +14,9 @@ pub struct Gateway {
     pub host: String,
     pub port: u16,
     pub client_id: String,
+    pub group_id: String,
     pub topic: GatewayTopic,
     pub auth: Option<GatewayAuth>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct GatewayAuth {
-    pub cert_path: String,
-    pub key_path: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -39,31 +27,15 @@ pub struct GatewayTopic {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct Database {
-    pub migrate: Option<String>,
-    pub clean: bool,
-    pub url: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct Embedded {
-    pub port_path: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct Auth {
-    pub secret: String,
-    pub expiration: u64,
+pub struct GatewayAuth {
+    pub cert_path: String,
+    pub key_path: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Settings {
-    pub server: Server,
     pub logger: Logger,
     pub gateway: Gateway,
-    pub database: Database,
-    pub embedded: Option<Embedded>,
-    pub auth: Auth,
 }
 
 impl Settings {
@@ -86,19 +58,6 @@ impl Settings {
                 .to_string();
 
             settings.gateway.auth = Some(GatewayAuth { cert_path, key_path });
-        }
-
-        if let Some(migrate) = &settings.database.migrate {
-            if Path::new(migrate).exists() {
-                let migrate_path = Self::normalize_path(&migrate)?;
-
-                let mut file = std::fs::File::open(migrate_path).unwrap();
-                let mut buffer = String::new();
-
-                file.read_to_string(&mut buffer).unwrap();
-
-                settings.database.migrate = Some(buffer);
-            }
         }
 
         Ok(settings)

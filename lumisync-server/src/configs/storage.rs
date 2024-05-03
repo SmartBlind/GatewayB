@@ -3,11 +3,20 @@ use std::sync::Arc;
 use sqlx::{Error, SqlitePool};
 use sqlx::sqlite::SqlitePoolOptions;
 
-use crate::configs::settings::Settings;
+use crate::configs::settings::{Database, Settings};
+use crate::models::Table;
+use crate::models::group::GroupTable;
+use crate::models::sensor::SensorTable;
+use crate::models::sensor_data::SensorDataTable;
+use crate::models::setting::SettingTable;
+use crate::models::user::UserTable;
+use crate::models::window::WindowTable;
+use crate::models::window_sensor::WindowSensorTable;
 
 #[derive(Clone)]
 pub struct Storage {
     pool: SqlitePool,
+    database: Arc<Database>,
 }
 
 impl Storage {
@@ -18,7 +27,10 @@ impl Storage {
             .connect(&settings.database.url)
             .await?;
 
-        Ok(Self { pool })
+        Ok(Self {
+            pool,
+            database: Arc::new(settings.database.clone()),
+        })
     }
 
     pub fn get_pool(&self) -> &SqlitePool {
@@ -26,36 +38,32 @@ impl Storage {
     }
 
     pub async fn create_tables(&self) -> Result<(), Error> {
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT NOT NULL UNIQUE);
+        let mut statements: Vec<String> = Vec::new();
+        let tables: Vec<Box<dyn Table>> = vec![
+            Box::new(GroupTable),
+            Box::new(UserTable),
+            Box::new(SettingTable),
+            Box::new(WindowTable),
+            Box::new(SensorTable),
+            Box::new(SensorDataTable),
+            Box::new(WindowSensorTable),
+        ];
 
-            CREATE TABLE IF NOT EXISTS settings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER UNIQUE NOT NULL,
-                light INTEGER NOT NULL,
-                temperature REAL NOT NULL,
-                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE);
+        if self.database.clean {
+            for table in tables.iter().rev() {
+                statements.push(table.dispose());
+            }
+        }
 
-            CREATE TABLE IF NOT EXISTS windows (
-                id INTEGER PRIMARY KEY,
-                user_id INTEGER NOT NULL,
-                sensor_id TEXT UNIQUE,
-                name TEXT,
-                state REAL NOT NULL,
-                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE);
+        for table in tables {
+            statements.push(table.create());
+        }
 
-            CREATE TABLE IF NOT EXISTS sensor_data (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                sensor_id TEXT NOT NULL,
-                light INTEGER NOT NULL,
-                temperature REAL NOT NULL,
-                time DATETIME NOT NULL,
-                FOREIGN KEY (sensor_id) REFERENCES windows (sensor_id) ON DELETE CASCADE);
-            "#
-        )
+        if let Some(migrate) = self.database.migrate.clone() {
+            statements.push(migrate);
+        }
+
+        sqlx::query(&statements.join("\n"))
             .execute(&self.pool)
             .await?;
 

@@ -14,6 +14,8 @@ use tokio::time::interval;
 use tokio_stream::{Stream, StreamExt, wrappers};
 
 use crate::configs::storage::Storage;
+use crate::models::sensor::Sensor;
+use crate::models::sensor_data::SensorData;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct TimeRangeQuery {
@@ -21,17 +23,22 @@ pub struct TimeRangeQuery {
     end: Option<DateTime<Utc>>,
 }
 
-#[derive(Serialize, Deserialize, sqlx::FromRow)]
-pub struct SensorData {
-    id: i32,
-    light: i32,
-    temperature: f32,
-    time: DateTime<Utc>,
-}
-
 #[derive(Clone)]
 pub struct SensorState {
     pub database: Arc<Storage>,
+}
+
+pub async fn get_sensors_by_group(
+    Path(group_id): Path<i32>,
+    State(state): State<SensorState>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let sensors = sqlx::query_as::<_, Sensor>("SELECT * FROM sensors WHERE group_id = ?")
+        .bind(group_id.to_string())
+        .fetch_all(state.database.get_pool())
+        .await
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+
+    Ok(Json(sensors))
 }
 
 pub async fn get_sensor_data(

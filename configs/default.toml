@@ -6,14 +6,21 @@ port = 3000
 level = "debug"
 
 [gateway]
-address = "127.0.0.1"
+host = "127.0.0.1"
 port = 1883
 client_id = "client-gatewayb"
+# For mock gateway user group
+group_id = "sample"
 
 [gateway.topic]
-prefix_env = "prefix-env"
-prefix_country = "prefix-country"
-customer_id = "customer-id"
+prefix_type = "json"
+prefix_mode = "dev"
+prefix_country = "earth"
 
 [database]
+clean = true
 url = "sqlite::memory:"
+
+[auth]
+secret = "smart-blinds-secret"
+expiration = 233333

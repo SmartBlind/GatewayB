@@ -8,16 +8,17 @@ use tokio::sync::Mutex;
 
 use crate::configs::settings::{GatewayTopic, Settings};
 use crate::configs::storage::Storage;
+use crate::models::group::Group;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct SensorAirDataPayload {
-    #[serde(rename = "tsmTuid")]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SensorPayload {
+    #[serde(alias = "sId",alias = "tsmTuid")]
     id: String,
-    #[serde(rename = "tsmTs")]
+    #[serde(alias = "mTs", alias = "tsmTs")]
     time_stamp: i64,
-    #[serde(rename = "lght")]
+    #[serde(alias = "lght")]
     light: i32,
-    #[serde(rename = "temp")]
+    #[serde(alias = "temp")]
     temperature: f32,
 }
 
@@ -32,7 +33,7 @@ impl SensorService {
     pub async fn new(settings: &Arc<Settings>, storage: &Arc<Storage>) -> Result<Self, Box<dyn error::Error>> {
         let mut options = MqttOptions::new(
             &settings.gateway.client_id,
-            &settings.gateway.address,
+            &settings.gateway.host,
             settings.gateway.port
         );
         options.set_keep_alive(time::Duration::from_secs(5));
@@ -57,25 +58,30 @@ impl SensorService {
         })
     }
 
-    pub async fn subscribe(&self, sensor_id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+    pub async fn subscribe_all_groups(&self) -> Result<(), Box<dyn error::Error>> {
+        let groups = sqlx::query_as::<_, Group>("SELECT * FROM groups;")
+            .fetch_all(self.storage.get_pool())
+            .await?;
+
+        for group in groups {
+            let target = format!("cloudext/{}/{}/{}/{}/#",
+                                 self.topic.prefix_type,
+                                 self.topic.prefix_mode,
+                                 self.topic.prefix_country,
+                                 group.name);
+
+            self.subscribe(&target).await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn subscribe(&self, target: &str) -> Result<(), Box<dyn error::Error>> {
         let client = self.client.lock().await;
 
-        let target = if let Some(id) = sensor_id {
-            format!("cloudext/json/{}/{}/{}/{}/#",
-                    self.topic.prefix_env,
-                    self.topic.prefix_country,
-                    self.topic.customer_id,
-                    id)
-        } else {
-            format!("cloudext/json/{}/{}/{}/#",
-                    self.topic.prefix_env,
-                    self.topic.prefix_country,
-                    self.topic.customer_id)
-        };
+        client.subscribe(target, QoS::AtLeastOnce).await?;
 
-        client.subscribe(&target, QoS::AtLeastOnce).await?;
-
-        tracing::debug!("subscribe topic {}", &target);
+        tracing::debug!("subscribe topic {}", target);
 
         let storage_clone = Arc::clone(&self.storage);
         let event_loop_clone = Arc::clone(&self.event_loop);
@@ -100,13 +106,11 @@ impl SensorService {
         Ok(())
     }
 
-    /// A mqtt client port
-    /// https://support.haltian.com/knowledgebase/how-to-connect-to-thingsee-iot-data-stream/
     async fn handle_message(storage: &Arc<Storage>, payload: &[u8]) -> Result<(), Box<dyn error::Error>> {
         if let Ok(payload_str) = String::from_utf8(payload.to_vec()) {
-            if let Ok(data) = serde_json::from_str::<SensorAirDataPayload>(&payload_str) {
+            if let Ok(data) = serde_json::from_str::<SensorPayload>(&payload_str) {
                 tracing::debug!("Receive: {:?}", data);
-                // write to database
+
                 sqlx::query("INSERT INTO sensor_data (sensor_id, light, temperature, time) VALUES (?, ?, ?, DATETIME(?))")
                     .bind(&data.id)
                     .bind(&data.light)

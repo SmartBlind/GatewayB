@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 use std::error::Error;
 use std::net::IpAddr;
-use std::sync::{Arc, Mutex};
-use std::thread;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use rumqttd::{Broker, Config, ConnectionSettings, Notification, RouterConfig, ServerSettings, TlsConfig};
-use rumqttd::local::LinkTx;
+use rumqttd::{Broker, Config, ConnectionSettings, RouterConfig, ServerSettings, TlsConfig};
+use rumqttd::local::{LinkRx, LinkTx};
+use tokio::sync::Mutex;
 
-use server::configs::settings::Gateway;
+use crate::settings::Gateway;
 
 pub struct MockBroker {
     pub broker: Arc<Mutex<Broker>>,
@@ -37,7 +37,7 @@ impl MockBroker {
             v4: Some(HashMap::from([
                 (2.to_string(), ServerSettings {
                     name: "v4-2".to_string(),
-                    listen: (gateway.address.parse::<IpAddr>()?, gateway.port).into(),
+                    listen: (gateway.host.parse::<IpAddr>()?, gateway.port).into(),
                     tls: tls_config,
                     next_connection_delay_ms: 10,
                     connections: ConnectionSettings {
@@ -68,43 +68,21 @@ impl MockBroker {
     pub fn start(&self) {
         let broker = Arc::clone(&self.broker);
 
-        thread::spawn(move || broker.lock().unwrap().start().unwrap());
+        tokio::spawn(async move {
+            broker.lock().await.start().unwrap()
+        });
     }
 
-    pub fn link(&self, topic: &str) -> LinkTx {
+    pub async fn link(&self, topic: &str) -> (LinkTx, LinkRx) {
         let difference = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
         let client_id = format!("client-{}", difference.as_secs());
 
-        let (mut link_tx, mut link_rx) = {
-            let broker_lock = self.broker.lock().unwrap();
-            broker_lock.link(&client_id).unwrap()
-        };
+        let broker_lock = self.broker.lock().await;
+
+        let (mut link_tx, link_rx) = broker_lock.link(&client_id).unwrap();
 
         link_tx.subscribe(topic).unwrap();
 
-        thread::spawn(move || {
-            let mut count = 0;
-            loop {
-                let notification = match link_rx.recv().unwrap() {
-                    Some(v) => v,
-                    None => continue,
-                };
-
-                match notification {
-                    Notification::Forward(forward) => {
-                        count += 1;
-                        println!(
-                            "Topic = {:?}, Count = {}, Payload = {} bytes",
-                            forward.publish.topic,
-                            count,
-                            forward.publish.payload.len()
-                        );
-                    }
-                    v => println!("{v:?}"),
-                }
-            }
-        });
-
-        link_tx
+        (link_tx, link_rx)
     }
 }

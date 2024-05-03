@@ -8,17 +8,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::configs::storage::Storage;
+use crate::models::setting::Setting;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SettingBody {
-    user_id: i32,
-    light: i32,
-    temperature: f32,
-}
-
-#[derive(Serialize, Deserialize, sqlx::FromRow)]
-pub struct Setting {
-    id: i32,
     user_id: i32,
     light: i32,
     temperature: f32,
