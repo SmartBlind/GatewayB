@@ -37,7 +37,7 @@ npm run web
 
 The ideal way to assemble the sensor and blinds.
 
-![demo.png](docs/demo.png)
+![room.png](docs/room.png)
 
 ### Materials
 
