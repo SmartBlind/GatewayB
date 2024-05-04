@@ -39,17 +39,15 @@ pub async fn run(settings: &Arc<Settings>) {
 }
 
 async fn create_app(settings: &Arc<Settings>) -> Router {
-    let storage = Arc::new(Storage::new(settings).await.expect("Fail to create database."));
-    storage.create_tables().await.expect("Fail to create tables.");
+    let storage = Arc::new(Storage::new(settings.database.clone()).await.unwrap());
+    storage.create_tables().await.unwrap();
 
-    let sensor_service = Arc::new(SensorService::new(settings, &storage).await
-        .expect("Fail to load remote gateway."));
-    sensor_service.subscribe_all_groups().await
-        .expect("Fail to subscribe topic");
+    let sensor_service = Arc::new(SensorService::new(settings.gateway.clone(), &storage).await.unwrap());
+    sensor_service.subscribe_all_groups().await.unwrap();
 
-    let actuator_service = ActuatorService::new(settings).map(Arc::new).ok();
+    let actuator_service = ActuatorService::new(settings.embedded.clone()).map(Arc::new).ok();
     let auth_service = Arc::new(AuthService::new());
-    let token_service = Arc::new(TokenService::new(settings));
+    let token_service = Arc::new(TokenService::new(settings.auth.clone()));
 
     let user = Router::new()
         .route("/register", post(create_user))

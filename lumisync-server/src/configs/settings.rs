@@ -1,5 +1,4 @@
-use std::env;
-use std::io::Read;
+use std::{env, fs};
 use std::path::{Path, PathBuf};
 
 use config::{Config, ConfigError, Environment, File};
@@ -92,12 +91,10 @@ impl Settings {
             if Path::new(migrate).exists() {
                 let migrate_path = Self::normalize_path(&migrate)?;
 
-                let mut file = std::fs::File::open(migrate_path).unwrap();
-                let mut buffer = String::new();
+                let data = fs::read(migrate_path).unwrap();
+                let script = String::from_utf8_lossy(&data);
 
-                file.read_to_string(&mut buffer).unwrap();
-
-                settings.database.migrate = Some(buffer);
+                settings.database.migrate = Some(script.into_owned());
             }
         }
 

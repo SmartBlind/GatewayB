@@ -16,6 +16,7 @@ pub struct UserRegisterBody {
     group_id: i32,
     email: String,
     password: String,
+    role: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -28,6 +29,7 @@ pub struct UserAuthBody {
 pub struct UserData {
     group_id: i32,
     email: String,
+    role: String,
     token: String,
 }
 
@@ -82,6 +84,7 @@ pub async fn authenticate_user(
         Ok(Json(UserData {
             group_id: user.group_id,
             email: user.email,
+            role: user.role,
             token: token_data.token,
         }))
     } else {

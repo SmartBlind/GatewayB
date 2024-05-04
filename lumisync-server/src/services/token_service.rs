@@ -1,11 +1,10 @@
 use std::error::Error;
-use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use jsonwebtoken::{decode, DecodingKey, encode, EncodingKey, Header, TokenData, Validation};
 use serde::{Deserialize, Serialize};
 
-use crate::configs::settings::Settings;
+use crate::configs::settings::Auth;
 use crate::models::user::User;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,6 +18,7 @@ pub struct Token {
 pub struct TokenClaims {
     pub sub: String,
     pub email: String,
+    pub role: String,
     pub iat: u64,
     pub exp: u64,
 }
@@ -30,10 +30,10 @@ pub struct TokenService {
 }
 
 impl TokenService {
-    pub fn new(settings: &Arc<Settings>) -> Self {
+    pub fn new(auth: Auth) -> Self {
         Self {
-            expiration: settings.auth.expiration,
-            secret: settings.auth.secret.clone(),
+            expiration: auth.expiration,
+            secret: auth.secret.clone(),
         }
     }
 
@@ -57,6 +57,7 @@ impl TokenService {
         let claims = TokenClaims {
             sub: user.id.to_string(),
             email: user.email.to_string(),
+            role: user.role.to_string(),
             iat,
             exp,
         };

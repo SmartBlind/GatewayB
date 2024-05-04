@@ -6,7 +6,7 @@ use rumqttc::{AsyncClient, Event, EventLoop, MqttOptions, Packet, QoS, TlsConfig
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
-use crate::configs::settings::{GatewayTopic, Settings};
+use crate::configs::settings::{Gateway, GatewayTopic};
 use crate::configs::storage::Storage;
 use crate::models::group::Group;
 
@@ -30,15 +30,11 @@ pub struct SensorService {
 }
 
 impl SensorService {
-    pub async fn new(settings: &Arc<Settings>, storage: &Arc<Storage>) -> Result<Self, Box<dyn error::Error>> {
-        let mut options = MqttOptions::new(
-            &settings.gateway.client_id,
-            &settings.gateway.host,
-            settings.gateway.port
-        );
+    pub async fn new(gateway: Gateway, storage: &Arc<Storage>) -> Result<Self, Box<dyn error::Error>> {
+        let mut options = MqttOptions::new(&gateway.client_id, &gateway.host, gateway.port);
         options.set_keep_alive(time::Duration::from_secs(5));
 
-        if let Some(auth) = &settings.gateway.auth {
+        if let Some(auth) = &gateway.auth {
             let (client_cert, client_key) = (fs::read(&auth.cert_path)?, fs::read(&auth.key_path)?);
             let tls_config = TlsConfiguration::Simple {
                 ca: client_cert.clone(),
@@ -53,7 +49,7 @@ impl SensorService {
         Ok(Self {
             client: Arc::new(Mutex::new(client)),
             event_loop: Arc::new(Mutex::new(event_loop)),
-            topic: Arc::new(settings.gateway.topic.clone()),
+            topic: Arc::new(gateway.topic.clone()),
             storage: Arc::clone(storage),
         })
     }

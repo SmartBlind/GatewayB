@@ -66,7 +66,7 @@ INSERT INTO groups (name) VALUES ('sample');
 
 -- Insert sample data into 'users'
 -- Password: test
-INSERT INTO users (group_id, email, password) VALUES (1, 'test@test.com', '$argon2id$v=19$m=19456,t=2,p=1$zk5JmuovvG7B6vyGGmLxDQ$qoqCpKkqrgoVjeTGa5ewrqFpuPUisTCDnEiPz6Dh/oc');
+INSERT INTO users (group_id, email, password, role) VALUES (1, 'test@test.com', '$argon2id$v=19$m=19456,t=2,p=1$zk5JmuovvG7B6vyGGmLxDQ$qoqCpKkqrgoVjeTGa5ewrqFpuPUisTCDnEiPz6Dh/oc', 'admin');
 
 -- Insert sample data into 'settings'
 INSERT INTO settings (user_id, light, temperature) VALUES (1, 6, 22.5);

@@ -3,12 +3,12 @@ use std::sync::Arc;
 use sqlx::{Error, SqlitePool};
 use sqlx::sqlite::SqlitePoolOptions;
 
-use crate::configs::settings::{Database, Settings};
-use crate::models::Table;
+use crate::configs::settings::Database;
 use crate::models::group::GroupTable;
 use crate::models::sensor::SensorTable;
 use crate::models::sensor_data::SensorDataTable;
 use crate::models::setting::SettingTable;
+use crate::models::Table;
 use crate::models::user::UserTable;
 use crate::models::window::WindowTable;
 use crate::models::window_sensor::WindowSensorTable;
@@ -20,16 +20,16 @@ pub struct Storage {
 }
 
 impl Storage {
-    pub async fn new(settings: &Arc<Settings>) -> Result<Self, Error> {
+    pub async fn new(database: Database) -> Result<Self, Error> {
         let pool = SqlitePoolOptions::new()
             .min_connections(1) // in memory db might drop connection when 0
             .max_connections(10)
-            .connect(&settings.database.url)
+            .connect(&database.url)
             .await?;
 
         Ok(Self {
             pool,
-            database: Arc::new(settings.database.clone()),
+            database: Arc::new(database),
         })
     }
 

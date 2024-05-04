@@ -5,20 +5,20 @@ use std::time::Duration;
 use serialport::{available_ports, SerialPort};
 use tokio::sync::Mutex;
 
-use crate::configs::settings::Settings;
+use crate::configs::settings::Embedded;
 
 pub struct ActuatorService {
     port: Arc<Mutex<Box<dyn SerialPort>>>,
 }
 
 impl ActuatorService {
-    pub fn new(settings: &Arc<Settings>) -> Result<Self, Box<dyn Error>> {
-        let port_path = if let Some(embedded) = &settings.embedded {
-            embedded.port_path.clone()
-        } else {
-            available_ports()?.first()
+    pub fn new(embedded: Option<Embedded>) -> Result<Self, Box<dyn Error>> {
+        let port_path = match embedded {
+            Some(embedded) => embedded.port_path.clone(),
+            None => available_ports()?
+                .first()
                 .map(|port| port.port_name.clone())
-                .ok_or("No config file found")?
+                .ok_or("No config file found")?,
         };
 
         tracing::debug!("Connect to port: {}", port_path);
