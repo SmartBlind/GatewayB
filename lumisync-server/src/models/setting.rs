@@ -28,6 +28,6 @@ impl Table for SettingTable {
     }
 
     fn dispose(&self) -> String {
-        String::from("DROP TABLE settings;")
+        String::from("DROP TABLE IF EXISTS settings;")
     }
 }

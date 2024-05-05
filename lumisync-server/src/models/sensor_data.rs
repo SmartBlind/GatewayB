@@ -30,6 +30,6 @@ impl Table for SensorDataTable {
     }
 
     fn dispose(&self) -> String {
-        String::from("DROP TABLE sensor_data;")
+        String::from("DROP TABLE IF EXISTS sensor_data;")
     }
 }

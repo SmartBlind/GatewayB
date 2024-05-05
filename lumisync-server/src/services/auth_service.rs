@@ -48,17 +48,19 @@ mod tests {
         let password = "test";
 
         let hash = auth_service.hash(password).unwrap();
+
         assert!(hash.starts_with("$argon2"));
 
         let user = User {
             id: 0,
             group_id: 0,
-            email: "".to_string(),
+            email: String::from("test@test.com"),
             password: hash,
-            role: "".to_string(),
+            role: String::from("test"),
         };
 
         let result = auth_service.verify(&user, password).unwrap();
+
         assert!(result);
     }
 }

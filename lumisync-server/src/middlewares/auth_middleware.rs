@@ -1,16 +1,14 @@
 use std::sync::Arc;
 
-use axum::http;
 use axum::body::Body;
 use axum::extract::State;
-use axum::http::{Request, StatusCode};
+use axum::http::{header, Request, StatusCode};
 use axum::middleware::Next;
 use axum::response::IntoResponse;
 use axum_extra::headers::{Authorization, Header};
 use axum_extra::headers::authorization::Bearer;
 
 use crate::configs::storage::Storage;
-use crate::models::user::User;
 use crate::services::token_service::TokenService;
 
 #[derive(Clone)]
@@ -26,29 +24,100 @@ pub async fn auth(
 ) -> Result<impl IntoResponse, StatusCode> {
     let mut headers = req
         .headers_mut()
-        .iter()
-        .filter_map(|(header_name, header_value)| {
-            if header_name == http::header::AUTHORIZATION {
-                Some(header_value)
-            } else {
-                None
-            }
-        });
+        .get_all(header::AUTHORIZATION)
+        .iter();
 
     let header: Authorization<Bearer> = Authorization::decode(&mut headers)
         .map_err(|_| StatusCode::BAD_REQUEST)?;
 
-    let token = header.token();
+    let token_data = state.token_service.retrieve_token_claims(header.token())
+        .map_err(|_| StatusCode::UNAUTHORIZED)?;
 
-    let token_data = state.token_service.retrieve_token_claims(token)
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
+    req.extensions_mut().insert(token_data);
 
-    let user: User = sqlx::query_as("SELECT * FROM users WHERE email = ?")
-        .bind(&token_data.claims.email)
-        .fetch_one(state.storage.get_pool())
-        .await
-        .map_err(|_| StatusCode::NOT_FOUND)?;
-
-    req.extensions_mut().insert(user);
     Ok(next.run(req).await)
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::{Extension, middleware, Router, routing};
+    use axum::body::to_bytes;
+    use jsonwebtoken::TokenData;
+    use tower::ServiceExt;
+
+    use crate::configs::settings::{Auth, Database};
+    use crate::models::user::User;
+    use crate::services::token_service::TokenClaims;
+
+    use super::*;
+
+    async fn create_test_app() -> (Router, Arc<TokenService>) {
+        let storage = Arc::new(Storage::new(Database {
+            migrate: None,
+            clean: false,
+            url: String::from("sqlite::memory:"),
+        }).await.unwrap());
+        let token_service = Arc::new(TokenService::new(Auth {
+            secret: String::from("test"),
+            expiration: 1000,
+        }));
+
+        let app = Router::new()
+            .route("/test", routing::get(
+                |Extension(token_data): Extension<TokenData<TokenClaims>>| async move {
+                    format!("{:?}", token_data.claims)
+                })
+            )
+            .layer(middleware::from_fn_with_state(TokenState {
+                token_service: token_service.clone(),
+                storage,
+            }, auth));
+
+        (app, token_service)
+    }
+
+    #[tokio::test]
+    async fn test_auth_middleware() {
+        let (app, service) = create_test_app().await;
+
+        let user = User {
+            id: 1,
+            group_id: 1,
+            email: String::from("test@test.com"),
+            password: String::from("test"),
+            role: String::from("test"),
+        };
+
+        let token = service.generate_token(&user).unwrap();
+
+        let req = Request::builder()
+            .uri("/test")
+            .header("Authorization", format!("Bearer {}", token.token))
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(req).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body_str = String::from_utf8(body.to_vec()).unwrap();
+
+        assert!(body_str.contains(&user.email));
+    }
+
+    #[tokio::test]
+    async fn test_auth_middleware_with_bad_token() {
+        let (app, _) = create_test_app().await;
+
+        let req = Request::builder()
+            .uri("/test")
+            .header("Authorization", "Bearer bad_token")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(req).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
 }

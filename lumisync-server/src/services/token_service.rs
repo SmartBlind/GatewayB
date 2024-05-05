@@ -9,6 +9,8 @@ use crate::models::user::User;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Token {
+    pub id: String,
+    pub role: String,
     pub token: String,
     pub iat: u64,
     pub exp: u64,
@@ -66,6 +68,40 @@ impl TokenService {
 
         let token = encode(&Header::default(), &claims, &encoding_key)?;
 
-        Ok(Token { token, iat, exp })
+        Ok(Token {
+            id: claims.sub,
+            role: user.role.to_string(),
+            token,
+            iat,
+            exp,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_and_retrieve_token() {
+        let token_service = TokenService::new(Auth {
+            secret: String::from("test"),
+            expiration: 1000,
+        });
+        let user = User {
+            id: 1,
+            group_id: 1,
+            email: String::from("test@test.com"),
+            password: String::from("test"),
+            role: String::from("test"),
+        };
+
+        let token = token_service.generate_token(&user).unwrap();
+
+        let claims = token_service.retrieve_token_claims(&token.token).unwrap().claims;
+
+        assert_eq!(claims.sub, user.id.to_string());
+        assert_eq!(claims.email, user.email);
+        assert_eq!(claims.role, user.role);
     }
 }

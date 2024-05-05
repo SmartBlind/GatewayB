@@ -10,6 +10,7 @@ use crate::models::sensor_data::SensorDataTable;
 use crate::models::setting::SettingTable;
 use crate::models::Table;
 use crate::models::user::UserTable;
+use crate::models::user_window::UserWindowTable;
 use crate::models::window::WindowTable;
 use crate::models::window_sensor::WindowSensorTable;
 
@@ -46,6 +47,8 @@ impl Storage {
             Box::new(WindowTable),
             Box::new(SensorTable),
             Box::new(SensorDataTable),
+            // Reference
+            Box::new(UserWindowTable),
             Box::new(WindowSensorTable),
         ];
 

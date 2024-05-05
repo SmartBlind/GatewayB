@@ -22,6 +22,6 @@ impl Table for GroupTable {
     }
 
     fn dispose(&self) -> String {
-        String::from("DROP TABLE groups;")
+        String::from("DROP TABLE IF EXISTS groups;")
     }
 }

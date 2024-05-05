@@ -41,13 +41,13 @@ impl Table for UserTable {
                 email TEXT NOT NULL UNIQUE,
                 password TEXT NOT NULL,
                 role TEXT NOT NULL,
-                FOREIGN KEY (group_id) REFERENCES groups (id)
+                FOREIGN KEY (group_id) REFERENCES groups (id) ON DELETE CASCADE
             );
             "#
         )
     }
 
     fn dispose(&self) -> String {
-        String::from("DROP TABLE users;")
+        String::from("DROP TABLE IF EXISTS users;")
     }
 }

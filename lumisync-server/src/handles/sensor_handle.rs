@@ -41,6 +41,26 @@ pub async fn get_sensors_by_group(
     Ok(Json(sensors))
 }
 
+pub async fn get_sensors_by_user(
+    Path(group_id): Path<i32>,
+    State(state): State<SensorState>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let sensors = sqlx::query_as::<_, Sensor>(r#"
+        SELECT s.* FROM users u
+            JOIN users_windows_link uw ON u.id = uw.user_id
+            JOIN windows w ON uw.window_id = w.id
+            JOIN windows_sensors_link ws ON w.id = ws.window_id
+            JOIN sensors s ON ws.sensor_id = s.id
+            WHERE u.id = ?;
+    "#)
+        .bind(group_id.to_string())
+        .fetch_all(state.database.get_pool())
+        .await
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+
+    Ok(Json(sensors))
+}
+
 pub async fn get_sensor_data(
     Path(sensor_id): Path<String>,
     Query(range): Query<TimeRangeQuery>,

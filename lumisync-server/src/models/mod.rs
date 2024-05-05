@@ -3,6 +3,7 @@ pub mod sensor;
 pub mod sensor_data;
 pub mod setting;
 pub mod user;
+pub mod user_window;
 pub mod window;
 pub mod window_sensor;
 

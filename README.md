@@ -72,11 +72,15 @@ INSERT INTO users (group_id, email, password, role) VALUES (1, 'test@test.com', 
 INSERT INTO settings (user_id, light, temperature) VALUES (1, 6, 22.5);
 
 -- Insert sample data into 'windows'
-INSERT INTO windows (user_id, name, state) VALUES (1, 'Living Room Left', 0);
-INSERT INTO windows (user_id, name, state) VALUES (1, 'Living Room Right', 0);
+INSERT INTO windows (group_id, name, state) VALUES (1, 'Living Room Left', 0);
+INSERT INTO windows (group_id, name, state) VALUES (1, 'Living Room Right', 0);
 
 -- Insert sample data into 'sensors'
 INSERT INTO sensors (group_id, name) VALUES (1, 'SENSOR-MOCK');
+
+-- Insert sample data into 'users_windows_link'
+INSERT INTO users_windows_link (user_id, window_id) VALUES (1, 1);
+INSERT INTO users_windows_link (user_id, window_id) VALUES (1, 2);
 
 -- Insert sample data into 'windows_sensors_link'
 INSERT INTO windows_sensors_link (window_id, sensor_id) VALUES (1, 1);
