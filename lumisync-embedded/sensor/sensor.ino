@@ -55,7 +55,7 @@ void connect() {
     delay(1000);
   }
   Serial.println("\nConnected!");
-  client.subscribe("/internal/ldrSensor");
+  client.subscribe("/internal/sensor");
 }
 
 void messageReceived(String &topic, String &payload) {

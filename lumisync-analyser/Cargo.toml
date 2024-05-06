@@ -1,0 +1,18 @@
+[package]
+name = "lumisync-analyser"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "training"
+path = "src/main.rs"
+
+[dependencies]
+byteorder = "1"
+ordered-float = "4"
+rand = "0.8"
+rayon = "1"
+thiserror = "1"

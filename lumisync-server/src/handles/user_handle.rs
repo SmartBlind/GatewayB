@@ -37,7 +37,7 @@ pub struct UserData {
 pub struct UserState {
     pub auth_service: Arc<AuthService>,
     pub token_service: Arc<TokenService>,
-    pub database: Arc<Storage>,
+    pub storage: Arc<Storage>,
 }
 
 pub async fn create_user(
@@ -51,13 +51,13 @@ pub async fn create_user(
         .bind(body.group_id.to_string())
         .bind(&body.email)
         .bind(&hash_password)
-        .execute(state.database.get_pool())
+        .execute(state.storage.get_pool())
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let user: User = sqlx::query_as("SELECT * FROM users WHERE email = ?")
         .bind(&body.email)
-        .fetch_one(state.database.get_pool())
+        .fetch_one(state.storage.get_pool())
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -70,7 +70,7 @@ pub async fn authenticate_user(
 ) -> Result<impl IntoResponse, StatusCode> {
     let user: User = sqlx::query_as("SELECT * FROM users WHERE email = ?")
         .bind(&body.email)
-        .fetch_one(state.database.get_pool())
+        .fetch_one(state.storage.get_pool())
         .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
 

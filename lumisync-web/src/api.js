@@ -1,5 +1,6 @@
 export const API = {
     "control": `${globalThis.__APP_API_URL__}/control`,
+    "users": `${globalThis.__APP_API_URL__}/users`,
     "settings": `${globalThis.__APP_API_URL__}/settings`,
     "windows": `${globalThis.__APP_API_URL__}/windows`,
     "sensors": `${globalThis.__APP_API_URL__}/sensors`,
@@ -15,6 +16,48 @@ export async function control(command, callback) {
             console.log("Send command successfully!");
         } else {
             console.error("Fail to send command.");
+        }
+    } catch (error) {
+        console.error("Internal error:", error);
+    }
+}
+
+export async function registerUser(data, callback) {
+    try {
+        const response = await fetch(`${API.users}/register`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            callback?.();
+            console.log("Register user successfully!");
+        } else {
+            console.error("Failed to register user");
+        }
+    } catch (error) {
+        console.error("Internal error:", error);
+    }
+}
+
+export async function loginUser(data, callback) {
+    try {
+        const response = await fetch(`${API.users}/auth`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            callback?.();
+            console.log("Login successfully!");
+        } else {
+            console.error("Failed to login.");
         }
     } catch (error) {
         console.error("Internal error:", error);

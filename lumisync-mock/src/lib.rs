@@ -14,8 +14,8 @@ use crate::command::CommandHandler;
 use crate::broker::MockBroker;
 use crate::simulate::{simulated_humidity, simulation_lux};
 
-mod broker;
-mod command;
+pub mod broker;
+pub mod command;
 pub mod settings;
 mod simulate;
 

@@ -9,7 +9,7 @@ use tower_http::cors::CorsLayer;
 use crate::configs::settings::Settings;
 use crate::configs::storage::Storage;
 use crate::handles::control_handle::{ControlState, execute_command};
-use crate::handles::sensor_handle::{get_sensor_data, get_sensor_data_in_range, get_sensors_by_group, SensorState};
+use crate::handles::sensor_handle::{get_sensor_data, get_sensor_data_in_range, get_sensors_by_user, SensorState};
 use crate::handles::setting_handle::{save_setting, SettingState};
 use crate::handles::user_handle::{create_user, UserState, authenticate_user};
 use crate::handles::window_handle::{create_window, delete_window, get_windows_by_user, get_window, update_window, WindowState};
@@ -19,10 +19,10 @@ use crate::services::sensor_service::SensorService;
 use crate::services::token_service::TokenService;
 
 pub mod configs;
-mod handles;
-mod middlewares;
-mod models;
-mod services;
+pub mod handles;
+pub mod middlewares;
+pub mod models;
+pub mod services;
 
 pub async fn run(settings: &Arc<Settings>) {
     let app = create_app(settings).await;
@@ -55,13 +55,13 @@ async fn create_app(settings: &Arc<Settings>) -> Router {
         .with_state(UserState {
             auth_service: auth_service.clone(),
             token_service: token_service.clone(),
-            database: storage.clone(),
+            storage: storage.clone(),
         });
 
     let settings = Router::new()
         .route("/", post(save_setting))
         .with_state(SettingState {
-            database: storage.clone(),
+            storage: storage.clone(),
         });
 
     let windows = Router::new()
@@ -75,11 +75,11 @@ async fn create_app(settings: &Arc<Settings>) -> Router {
         });
 
     let sensors = Router::new()
-        .route("/:group_id", get(get_sensors_by_group))
+        .route("/", get(get_sensors_by_user))
         .route("/data/:sensor_id", get(get_sensor_data_in_range))
         .route("/data/sse/:sensor_id", get(get_sensor_data))
         .with_state(SensorState {
-            database: storage.clone(),
+            storage: storage.clone(),
         });
 
     // for debug

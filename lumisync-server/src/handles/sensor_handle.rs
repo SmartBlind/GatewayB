@@ -1,14 +1,17 @@
+use std::borrow::Cow::Borrowed;
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::time;
 
+use axum::{Extension, Json};
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
-use axum::Json;
 use axum::response::{IntoResponse, Sse};
 use axum::response::sse::Event;
 use chrono::{DateTime, Duration, Utc};
+use jsonwebtoken::TokenData;
 use serde::{Deserialize, Serialize};
+use sqlx::Error::Database;
 use tokio::sync::Mutex;
 use tokio::time::interval;
 use tokio_stream::{Stream, StreamExt, wrappers};
@@ -16,6 +19,13 @@ use tokio_stream::{Stream, StreamExt, wrappers};
 use crate::configs::storage::Storage;
 use crate::models::sensor::Sensor;
 use crate::models::sensor_data::SensorData;
+use crate::models::user::{Role, User};
+use crate::services::token_service::TokenClaims;
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct SensorBody {
+    name: String,
+}
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct TimeRangeQuery {
@@ -25,40 +35,86 @@ pub struct TimeRangeQuery {
 
 #[derive(Clone)]
 pub struct SensorState {
-    pub database: Arc<Storage>,
+    pub storage: Arc<Storage>,
 }
 
-pub async fn get_sensors_by_group(
-    Path(group_id): Path<i32>,
+pub async fn create_sensor(
+    Extension(token_data): Extension<TokenData<TokenClaims>>,
     State(state): State<SensorState>,
+    Json(body): Json<SensorBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let sensors = sqlx::query_as::<_, Sensor>("SELECT * FROM sensors WHERE group_id = ?")
-        .bind(group_id.to_string())
-        .fetch_all(state.database.get_pool())
-        .await
-        .map_err(|_| StatusCode::NOT_FOUND)?;
+    match Role::from(token_data.claims.role.clone()) {
+        Role::Admin => {
+            let user: User = sqlx::query_as("SELECT * FROM users WHERE id = ?")
+                .bind(&token_data.claims.sub)
+                .fetch_one(state.storage.get_pool())
+                .await
+                .map_err(|_| StatusCode::NOT_FOUND)?;
 
-    Ok(Json(sensors))
+            let result = sqlx::query("INSERT INTO sensors (group_id, name) VALUES (?, ?)")
+                .bind(&user.group_id)
+                .bind(&body.name)
+                .execute(state.storage.get_pool())
+                .await;
+
+            match result {
+                Ok(_) => {
+                    let sensors = sqlx::query_as::<_, Sensor>("SELECT * FROM sensors WHERE group_id = ?")
+                        .bind(&user.group_id)
+                        .fetch_all(state.storage.get_pool())
+                        .await
+                        .map_err(|_| StatusCode::NOT_FOUND)?;
+
+                    Ok(Json(sensors))
+                }
+                Err(Database(err)) if err.code() == Some(Borrowed("23000")) => Err(StatusCode::CONFLICT),
+                Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR)
+            }
+        },
+        _ => Err(StatusCode::FORBIDDEN)?,
+    }
 }
 
 pub async fn get_sensors_by_user(
-    Path(group_id): Path<i32>,
+    Extension(token_data): Extension<TokenData<TokenClaims>>,
     State(state): State<SensorState>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let sensors = sqlx::query_as::<_, Sensor>(r#"
-        SELECT s.* FROM users u
-            JOIN users_windows_link uw ON u.id = uw.user_id
-            JOIN windows w ON uw.window_id = w.id
-            JOIN windows_sensors_link ws ON w.id = ws.window_id
-            JOIN sensors s ON ws.sensor_id = s.id
-            WHERE u.id = ?;
-    "#)
-        .bind(group_id.to_string())
-        .fetch_all(state.database.get_pool())
-        .await
-        .map_err(|_| StatusCode::NOT_FOUND)?;
+    match Role::from(token_data.claims.role.clone()) {
+        Role::Admin => {
+            let sensors = sqlx::query_as::<_, Sensor>(
+                r#"
+                    SELECT sensors.* FROM sensors
+                        JOIN groups ON sensors.group_id = groups.id
+                        JOIN users ON groups.id = users.group_id
+                        WHERE users.id = ?;
+                "#
+            )
+                .bind(&token_data.claims.sub)
+                .fetch_all(state.storage.get_pool())
+                .await
+                .map_err(|_| StatusCode::NOT_FOUND)?;
 
-    Ok(Json(sensors))
+            Ok(Json(sensors))
+        },
+        Role::User => {
+            let sensors = sqlx::query_as::<_, Sensor>(
+                r#"
+                    SELECT DISTINCT s.* FROM users u
+                        JOIN users_windows_link uw ON u.id = uw.user_id
+                        JOIN windows w ON uw.window_id = w.id
+                        JOIN windows_sensors_link ws ON w.id = ws.window_id
+                        JOIN sensors s ON ws.sensor_id = s.id
+                        WHERE u.id = ?;
+                "#
+            )
+                .bind(&token_data.claims.sub)
+                .fetch_all(state.storage.get_pool())
+                .await
+                .map_err(|_| StatusCode::NOT_FOUND)?;
+
+            Ok(Json(sensors))
+        },
+    }
 }
 
 pub async fn get_sensor_data(
@@ -72,11 +128,17 @@ pub async fn get_sensor_data(
     let stream = wrappers::IntervalStream::new(interval(time::Duration::from_secs(3)))
         .then(move |_| {
             let id = sensor_id.clone();
-            let database = Arc::clone(&state.database);
+            let database = Arc::clone(&state.storage);
             let last_timestamp = Arc::clone(&last_timestamp);
             async move {
                 let last_time = *last_timestamp.lock().await;
-                let result = sqlx::query_as::<_, SensorData>("SELECT * FROM sensor_data where sensor_id = ? AND time > DATETIME(?) ORDER BY time")
+                let result = sqlx::query_as::<_, SensorData>(
+                    r#"
+                    SELECT * FROM sensor_data
+                        WHERE sensor_id = ? AND time > DATETIME(?)
+                        ORDER BY time;
+                    "#
+                )
                     .bind(&id)
                     .bind(last_time)
                     .fetch_all(database.get_pool())
@@ -109,11 +171,13 @@ pub async fn get_sensor_data_in_range(
 
     let where_clause = conditions.join(" AND ");
 
-    let key_point = sqlx::query_as::<_, SensorData>(&format!("SELECT * FROM sensor_data WHERE {where_clause} ORDER BY time", ))
+    let key_point = sqlx::query_as::<_, SensorData>(
+        &format!("SELECT * FROM sensor_data WHERE {where_clause} ORDER BY time")
+    )
         .bind(&sensor_id)
         .bind(range.start)
         .bind(range.end)
-        .fetch_all(state.database.get_pool())
+        .fetch_all(state.storage.get_pool())
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 

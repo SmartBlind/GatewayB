@@ -19,7 +19,7 @@ pub struct SettingBody {
 
 #[derive(Clone)]
 pub struct SettingState {
-    pub database: Arc<Storage>,
+    pub storage: Arc<Storage>,
 }
 
 // TODO: multi setting prefab
@@ -29,7 +29,7 @@ pub async fn save_setting(
 ) -> Result<impl IntoResponse, StatusCode> {
     let result = sqlx::query_as::<_, Setting>("SELECT * FROM settings WHERE user_id = ?")
         .bind(body.user_id)
-        .fetch_optional(state.database.get_pool())
+        .fetch_optional(state.storage.get_pool())
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -39,7 +39,7 @@ pub async fn save_setting(
                 .bind(&body.light)
                 .bind(&body.temperature)
                 .bind(body.user_id)
-                .execute(state.database.get_pool())
+                .execute(state.storage.get_pool())
                 .await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         },
@@ -48,7 +48,7 @@ pub async fn save_setting(
                 .bind(body.user_id)
                 .bind(&body.light)
                 .bind(&body.temperature)
-                .execute(state.database.get_pool())
+                .execute(state.storage.get_pool())
                 .await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         }

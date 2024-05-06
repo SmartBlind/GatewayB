@@ -59,13 +59,20 @@ pub async fn get_windows_by_user(
     Path(user_id): Path<i32>,
     State(state): State<WindowState>
 ) -> Result<impl IntoResponse, StatusCode> {
-    let window = sqlx::query_as::<_, Window>("SELECT * FROM windows WHERE user_id = ?")
+    let windows = sqlx::query_as::<_, Window>(
+        r#"
+            SELECT w.* FROM users u
+                JOIN users_windows_link uw ON u.id = uw.user_id
+                JOIN windows w ON uv.window_id = w.id
+                WHERE u.id = ?;
+        "#
+    )
         .bind(user_id.to_string())
         .fetch_all(state.storage.get_pool())
         .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
 
-    Ok(Json(window))
+    Ok(Json(windows))
 }
 
 pub async fn get_window(

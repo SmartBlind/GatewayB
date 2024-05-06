@@ -1,4 +1,3 @@
-use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 
 use crate::models::Table;
@@ -9,13 +8,11 @@ pub enum Role {
     User,
 }
 
-impl FromStr for Role {
-    type Err = ();
-
-    fn from_str(input: &str) -> Result<Role, Self::Err> {
-        match input {
-            "admin"  => Ok(Role::Admin),
-            _  => Ok(Role::User),
+impl From<String> for Role {
+    fn from(value: String) -> Self {
+        match value.as_str() {
+            "admin" => Role::Admin,
+            _  => Role::User,
         }
     }
 }
