@@ -12,6 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 byteorder = "1"
+csv = "1"
 ordered-float = "4"
 rand = "0.8"
 rayon = "1"
