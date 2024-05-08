@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter, Result};
+
 use serde::{Deserialize, Serialize};
 
 use crate::models::Table;
@@ -13,6 +15,15 @@ impl From<String> for Role {
         match value.as_str() {
             "admin" => Role::Admin,
             _  => Role::User,
+        }
+    }
+}
+
+impl Display for Role {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        match self {
+            Role::Admin => write!(f, "admin"),
+            Role::User => write!(f, "user"),
         }
     }
 }

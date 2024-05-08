@@ -33,7 +33,7 @@ export async function registerUser(data, callback) {
         });
 
         if (response.ok) {
-            callback?.();
+            callback?.(await response.json());
             console.log("Register user successfully!");
         } else {
             console.error("Failed to register user");
@@ -54,7 +54,7 @@ export async function loginUser(data, callback) {
         });
 
         if (response.ok) {
-            callback?.();
+            callback?.(await response.json());
             console.log("Login successfully!");
         } else {
             console.error("Failed to login.");

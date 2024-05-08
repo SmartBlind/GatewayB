@@ -9,10 +9,10 @@ use tower_http::cors::CorsLayer;
 use crate::configs::settings::Settings;
 use crate::configs::storage::Storage;
 use crate::handles::control_handle::{ControlState, execute_command};
-use crate::handles::sensor_handle::{get_sensor_data, get_sensor_data_in_range, get_sensors_by_user, SensorState};
+use crate::handles::sensor_handle::{get_sensor_data, get_sensor_data_in_range, get_sensors, SensorState};
 use crate::handles::setting_handle::{save_setting, SettingState};
-use crate::handles::user_handle::{create_user, UserState, authenticate_user};
-use crate::handles::window_handle::{create_window, delete_window, get_windows_by_user, get_window, update_window, WindowState};
+use crate::handles::user_handle::{authenticate_user, create_user, UserState};
+use crate::handles::window_handle::{create_window, delete_window, get_window, get_windows, update_window, WindowState};
 use crate::services::actuator_service::ActuatorService;
 use crate::services::auth_service::AuthService;
 use crate::services::sensor_service::SensorService;
@@ -67,7 +67,7 @@ async fn create_app(settings: &Arc<Settings>) -> Router {
     let windows = Router::new()
         .route("/", post(create_window))
         .route("/:window_id", get(get_window).put(update_window).delete(delete_window))
-        .route("/user/:user_id", get(get_windows_by_user))
+        .route("/user/:user_id", get(get_windows))
         .with_state(WindowState {
             sensor_service: sensor_service.clone(),
             actuator_service: actuator_service.clone(),
@@ -75,7 +75,7 @@ async fn create_app(settings: &Arc<Settings>) -> Router {
         });
 
     let sensors = Router::new()
-        .route("/", get(get_sensors_by_user))
+        .route("/", get(get_sensors))
         .route("/data/:sensor_id", get(get_sensor_data_in_range))
         .route("/data/sse/:sensor_id", get(get_sensor_data))
         .with_state(SensorState {

@@ -9,9 +9,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, to_vec};
 use tokio::time;
 
-use crate::settings::Settings;
-use crate::command::CommandHandler;
 use crate::broker::MockBroker;
+use crate::command::CommandHandler;
+use crate::settings::Settings;
 use crate::simulate::{simulated_humidity, simulation_lux};
 
 pub mod broker;

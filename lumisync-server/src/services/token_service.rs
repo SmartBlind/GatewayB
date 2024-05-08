@@ -9,8 +9,6 @@ use crate::models::user::User;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Token {
-    pub id: String,
-    pub role: String,
     pub token: String,
     pub iat: u64,
     pub exp: u64,
@@ -19,6 +17,7 @@ pub struct Token {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenClaims {
     pub sub: String,
+    pub group_id: String,
     pub email: String,
     pub role: String,
     pub iat: u64,
@@ -58,6 +57,7 @@ impl TokenService {
 
         let claims = TokenClaims {
             sub: user.id.to_string(),
+            group_id: user.group_id.to_string(),
             email: user.email.to_string(),
             role: user.role.to_string(),
             iat,
@@ -69,8 +69,6 @@ impl TokenService {
         let token = encode(&Header::default(), &claims, &encoding_key)?;
 
         Ok(Token {
-            id: claims.sub,
-            role: user.role.to_string(),
             token,
             iat,
             exp,
@@ -101,6 +99,7 @@ mod tests {
         let claims = token_service.retrieve_token_claims(&token.token).unwrap().claims;
 
         assert_eq!(claims.sub, user.id.to_string());
+        assert_eq!(claims.group_id, user.group_id.to_string());
         assert_eq!(claims.email, user.email);
         assert_eq!(claims.role, user.role);
     }

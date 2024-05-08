@@ -2,13 +2,12 @@ use std::collections::HashMap;
 
 use ordered_float::OrderedFloat;
 
-pub mod average;
 pub mod criterion;
 pub mod decision_tree;
 pub mod node;
+pub mod pid_controller;
 pub mod random_forest;
 pub mod table;
-mod gradient_boosting;
 
 fn mean(xs: impl Iterator<Item = f64>) -> f64 {
     let mut count = 0;

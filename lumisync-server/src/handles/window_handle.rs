@@ -3,8 +3,9 @@ use std::sync::Arc;
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::Json;
+use axum::{Extension, Json};
 use axum::response::IntoResponse;
+use jsonwebtoken::TokenData;
 use serde::{Deserialize, Serialize};
 use sqlx::Error::Database;
 
@@ -12,6 +13,7 @@ use crate::configs::storage::Storage;
 use crate::models::window::Window;
 use crate::services::actuator_service::ActuatorService;
 use crate::services::sensor_service::SensorService;
+use crate::services::token_service::TokenClaims;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct WindowBody {
@@ -29,12 +31,12 @@ pub struct WindowState {
 }
 
 pub async fn create_window(
+    Extension(token_data): Extension<TokenData<TokenClaims>>,
     State(state): State<WindowState>,
     Json(body): Json<WindowBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let result = sqlx::query("INSERT INTO windows (user_id,  name, state) VALUES (?, ?, ?)")
-        .bind(body.user_id)
-        .bind(&body.sensor_id)
+    let result = sqlx::query("INSERT INTO windows (group_id, name, state) VALUES (?, ?, ?)")
+        .bind(&token_data.claims.group_id)
         .bind(&body.name)
         .bind(body.state)
         .execute(state.storage.get_pool())
@@ -55,8 +57,8 @@ pub async fn create_window(
     }
 }
 
-pub async fn get_windows_by_user(
-    Path(user_id): Path<i32>,
+pub async fn get_windows(
+    Extension(token_data): Extension<TokenData<TokenClaims>>,
     State(state): State<WindowState>
 ) -> Result<impl IntoResponse, StatusCode> {
     let windows = sqlx::query_as::<_, Window>(
@@ -67,7 +69,7 @@ pub async fn get_windows_by_user(
                 WHERE u.id = ?;
         "#
     )
-        .bind(user_id.to_string())
+        .bind(&token_data.claims.sub)
         .fetch_all(state.storage.get_pool())
         .await
         .map_err(|_| StatusCode::NOT_FOUND)?;

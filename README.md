@@ -43,17 +43,44 @@ The ideal way to assemble the sensor and blinds.
 
 * 2x Arduino * (nano)
 * 28BYJ-48 stepper motor
-* LM393 Light-Dependent Resistor (LDR)
+* Light dependent resistor(LDR) + Resistor for LDR
+* NTC resistor + Resistor for NTC
 
 ### Procedural
 
-TODO
+Build up environment collector sensor. 
 
 ## Design
 
 A user group include a group of users and a group of sensors, each user able to
 control one or multiple windows, each window above link multiple sensors as data
 source.
+
+```mermaid
+erDiagram
+
+groups                { int id string name }
+users                 { int id int group_id string email string password string role }
+settings              { int id int user_id int light float temperature }
+windows               { int id int group_id string name float state }
+sensors               { int id int group_id string name }
+sensor_data           { int id int sensor_id int light float temperature datetime time }
+users_windows_link    { int id int user_id int window_id }
+windows_sensors_link  { int id int window_id int sensor_id }
+windows_settings_link { int id int window_id int setting_id }
+
+groups ||--|{ users : "group_id"
+groups ||--|{ windows : "group_id"
+groups ||--|{ sensors : "group_id"
+users ||--|{ settings : "user_id"
+users ||--|{ users_windows_link : "user_id"
+windows ||--|{ users_windows_link : "window_id"
+windows ||--|{ windows_sensors_link : "window_id"
+windows ||--|{ windows_settings_link : "window_id"
+sensors ||--o{ sensor_data : "sensor_id"
+sensors ||--|{ windows_sensors_link : "sensor_id"
+settings ||--|{ windows_settings_link : "setting_id"
+```
 
 ## Sample
 

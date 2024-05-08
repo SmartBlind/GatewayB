@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+
 use crate::models::Table;
 
 #[derive(Serialize, Deserialize, sqlx::FromRow)]

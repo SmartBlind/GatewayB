@@ -13,6 +13,7 @@ use crate::models::user::UserTable;
 use crate::models::user_window::UserWindowTable;
 use crate::models::window::WindowTable;
 use crate::models::window_sensor::WindowSensorTable;
+use crate::models::window_setting::WindowSettingTable;
 
 #[derive(Clone)]
 pub struct Storage {
@@ -50,6 +51,7 @@ impl Storage {
             // Reference
             Box::new(UserWindowTable),
             Box::new(WindowSensorTable),
+            Box::new(WindowSettingTable),
         ];
 
         if self.database.clean {

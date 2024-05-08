@@ -19,8 +19,6 @@ class Setting extends HTMLElement {
     createForm(parent) {
         const form = parent.appendChild(document.createElement("form"));
         form.innerHTML = `
-          <label for="user_id">Set User:</label>
-          <input type="text" name="user_id" id="user_id" placeholder="User Id / Email">
           <label for="light">Set Expected Light Lumen:</label>
           <input type="number" name="light" id="light"
                  min="0" max="20" step="1" value="6"

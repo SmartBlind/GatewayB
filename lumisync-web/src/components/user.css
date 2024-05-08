@@ -1,0 +1,77 @@
+.container {
+  max-width: 600px;
+  margin: 3.5rem auto;
+  padding: 1.5rem;
+  border: 1px solid #eee;
+  border-radius: 5px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+ul {
+  display: flex;
+  margin: 0 0 1rem 0;
+  padding: 0;
+  list-style-type: none;
+
+  & > li {
+    margin: 10px;
+    border-bottom: 1px solid #007bff;
+
+    & > button {
+      padding-bottom: 10px;
+      cursor: pointer;
+      transition: transform 0.2s;
+      letter-spacing: 0.1rem;
+      text-transform: capitalize;
+      border: none;
+      background-color: transparent;
+
+      &:hover {
+        transform: translateY(-1px);
+      }
+    }
+  }
+}
+
+.section {
+  overflow: hidden;
+  width: 100%;
+  transition: transform 0.5s ease;
+
+  & > form {
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.5s ease;
+    gap: 0.75rem;
+
+    & > label {
+      font-weight: bold;
+      display: block;
+      color: black;
+    }
+
+    & > input[type="text"],
+    & > input[type="number"],
+    & > input[type="submit"] {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    & > input[type="submit"] {
+      display: block;
+      width: calc(100% - 1rem);
+      margin: 0.75rem auto;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      color: white;
+      background-color: #007bff;
+
+      &:hover {
+        background-color: #0056b3;
+      }
+    }
+  }
+}

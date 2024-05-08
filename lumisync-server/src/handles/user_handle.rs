@@ -7,13 +7,13 @@ use axum::response::IntoResponse;
 use serde::{Deserialize, Serialize};
 
 use crate::configs::storage::Storage;
-use crate::models::user::User;
+use crate::models::user::{Role, User};
 use crate::services::auth_service::AuthService;
 use crate::services::token_service::TokenService;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct UserRegisterBody {
-    group_id: i32,
+    group: String,
     email: String,
     password: String,
     role: String,
@@ -23,14 +23,6 @@ pub struct UserRegisterBody {
 pub struct UserAuthBody {
     email: String,
     password: String,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct UserData {
-    group_id: i32,
-    email: String,
-    role: String,
-    token: String,
 }
 
 #[derive(Clone)]
@@ -47,10 +39,16 @@ pub async fn create_user(
     let hash_password = state.auth_service.hash(&body.password)
         .map_err(|_| StatusCode::FORBIDDEN)?;
 
-    sqlx::query("INSERT INTO users (group_id, email, password) VALUES (?, ?, ?)")
-        .bind(body.group_id.to_string())
+    sqlx::query(
+        r#"INSERT INTO users (group_id, email, password, role) VALUES (
+            (SELECT id FROM groups WHERE name = ?), ?, ?, ?
+        )
+        "#
+    )
+        .bind(&body.group)
         .bind(&body.email)
         .bind(&hash_password)
+        .bind(Role::User.to_string())
         .execute(state.storage.get_pool())
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -61,7 +59,10 @@ pub async fn create_user(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    Ok(Json(user))
+    let token_data = state.token_service.generate_token(&user)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(token_data.token)
 }
 
 pub async fn authenticate_user(
@@ -81,12 +82,7 @@ pub async fn authenticate_user(
         let token_data = state.token_service.generate_token(&user)
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-        Ok(Json(UserData {
-            group_id: user.group_id,
-            email: user.email,
-            role: user.role,
-            token: token_data.token,
-        }))
+        Ok(token_data.token)
     } else {
         Err(StatusCode::BAD_REQUEST)
     }

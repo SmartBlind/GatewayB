@@ -75,7 +75,7 @@ pub async fn create_sensor(
     }
 }
 
-pub async fn get_sensors_by_user(
+pub async fn get_sensors(
     Extension(token_data): Extension<TokenData<TokenClaims>>,
     State(state): State<SensorState>,
 ) -> Result<impl IntoResponse, StatusCode> {
