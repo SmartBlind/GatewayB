@@ -19,19 +19,40 @@ export const NAV_TARGET = {
 
 void function main() {
     const dashboard = new Dashboard(NAV_TARGET);
+    const mode = globalThis.__APP_ENV__;
 
-    if (localStorage.getItem("auth_token")) {
-        // TODO: validate the token
-        document.body.insertAdjacentElement("afterbegin", dashboard);
-    } else {
+    if (mode === "development") {
         const user = new User();
+        const enter = document.createElement("button");
+        enter.textContent = "Jump to dashboard";
         document.body.insertAdjacentElement("afterbegin", user);
         self.addEventListener("login", () => {
             user.style.display = "none";
             dashboard.removeAttribute("style");
         });
 
+        document.body.insertAdjacentElement("afterbegin", enter);
+        enter.addEventListener("click", () => {
+            self.dispatchEvent(new Event("login"));
+            enter.remove();
+        });
+
         dashboard.style.display = "none";
         document.body.insertAdjacentElement("afterbegin", dashboard);
+    } else {
+        if (localStorage.getItem("auth_token")) {
+            // TODO: validate the token
+            document.body.insertAdjacentElement("afterbegin", dashboard);
+        } else {
+            const user = new User();
+            document.body.insertAdjacentElement("afterbegin", user);
+            self.addEventListener("login", () => {
+                user.style.display = "none";
+                dashboard.removeAttribute("style");
+            });
+
+            dashboard.style.display = "none";
+            document.body.insertAdjacentElement("afterbegin", dashboard);
+        }
     }
 }();

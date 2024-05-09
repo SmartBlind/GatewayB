@@ -1,13 +1,11 @@
-use std::borrow::Cow::Borrowed;
 use std::sync::Arc;
 
+use axum::{Extension, Json};
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::{Extension, Json};
 use axum::response::IntoResponse;
 use jsonwebtoken::TokenData;
 use serde::{Deserialize, Serialize};
-use sqlx::Error::Database;
 
 use crate::configs::storage::Storage;
 use crate::models::window::Window;
@@ -35,26 +33,21 @@ pub async fn create_window(
     State(state): State<WindowState>,
     Json(body): Json<WindowBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let result = sqlx::query("INSERT INTO windows (group_id, name, state) VALUES (?, ?, ?)")
+    let window = sqlx::query_as::<_, Window>(
+        r#"
+        INSERT INTO windows (group_id, name, state)
+            VALUES ($1, $2, $3)
+            RETURNING *;
+        "#
+    )
         .bind(&token_data.claims.group_id)
         .bind(&body.name)
         .bind(body.state)
-        .execute(state.storage.get_pool())
-        .await;
+        .fetch_one(state.storage.get_pool())
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    match result {
-        Ok(_) => {
-            let window: Window = sqlx::query_as("SELECT * FROM windows WHERE sensor_id = ?")
-                .bind(&body.sensor_id)
-                .fetch_one(state.storage.get_pool())
-                .await
-                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-            Ok(Json(window))
-        },
-        Err(Database(err)) if err.code() == Some(Borrowed("23000")) => Err(StatusCode::CONFLICT),
-        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR)
-    }
+    Ok(Json(window))
 }
 
 pub async fn get_windows(

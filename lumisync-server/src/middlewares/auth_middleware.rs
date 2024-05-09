@@ -51,7 +51,12 @@ mod tests {
 
     use super::*;
 
-    async fn create_test_app() -> (Router, Arc<TokenService>) {
+    struct App {
+        router: Router,
+        token_service: Arc<TokenService>,
+    }
+
+    async fn create_test_app() -> App {
         let storage = Arc::new(Storage::new(Database {
             migrate: None,
             clean: false,
@@ -73,12 +78,15 @@ mod tests {
                 storage,
             }, auth));
 
-        (app, token_service)
+        App {
+            router: app,
+            token_service,
+        }
     }
 
     #[tokio::test]
     async fn test_auth_middleware() {
-        let (app, service) = create_test_app().await;
+        let app = create_test_app().await;
 
         let user = User {
             id: 1,
@@ -88,35 +96,43 @@ mod tests {
             role: String::from("test"),
         };
 
-        let token = service.generate_token(&user).unwrap();
+        let token = app.token_service.generate_token(&user).unwrap();
 
-        let req = Request::builder()
-            .uri("/test")
-            .header("Authorization", format!("Bearer {}", token.token))
-            .body(Body::empty())
+        let response = app
+            .router
+            .oneshot(
+                Request::builder()
+                    .uri("/test")
+                    .header("Authorization", format!("Bearer {}", token.token))
+                    .body(Body::empty())
+                    .unwrap()
+            )
+            .await
             .unwrap();
-
-        let response = app.oneshot(req).await.unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
-        let body_str = String::from_utf8(body.to_vec()).unwrap();
+        let res_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let res_body_str = String::from_utf8(res_body.to_vec()).unwrap();
 
-        assert!(body_str.contains(&user.email));
+        assert!(res_body_str.contains(&user.email));
     }
 
     #[tokio::test]
     async fn test_auth_middleware_with_bad_token() {
-        let (app, _) = create_test_app().await;
+        let app = create_test_app().await;
 
-        let req = Request::builder()
-            .uri("/test")
-            .header("Authorization", "Bearer bad_token")
-            .body(Body::empty())
+        let response = app
+            .router
+            .oneshot(
+                Request::builder()
+                    .uri("/test")
+                    .header("Authorization", "Bearer bad_token")
+                    .body(Body::empty())
+                    .unwrap()
+            )
+            .await
             .unwrap();
-
-        let response = app.oneshot(req).await.unwrap();
 
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     }
