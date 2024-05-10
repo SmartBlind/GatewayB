@@ -4,14 +4,14 @@ use crate::models::Table;
 
 #[derive(Serialize, Deserialize, sqlx::FromRow)]
 pub struct Window {
-    id: i32,
-    group_id: i32,
-    name: String,
+    pub id: i32,
+    pub group_id: i32,
+    pub name: String,
     /// State in a range of [-1, 1].
     /// when 0 means off;
     /// when -1 means rotate anti-clockwise to end;
     /// when 1 means clockwise to end;
-    state: f32,
+    pub state: f32,
 }
 
 pub struct WindowTable;

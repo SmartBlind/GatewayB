@@ -24,12 +24,12 @@ pub struct SettingState {
 }
 
 pub async fn save_setting(
-    Extension(token_data): Extension<TokenData<TokenClaims>>,
+    Extension(token_data): Extension<TokenClaims>,
     State(state): State<SettingState>,
     Json(body): Json<SettingBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let result = sqlx::query_as::<_, Setting>("SELECT * FROM settings WHERE user_id = ?")
-        .bind(&token_data.claims.sub)
+        .bind(&token_data.sub)
         .fetch_optional(state.storage.get_pool())
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -39,14 +39,14 @@ pub async fn save_setting(
             sqlx::query("UPDATE settings SET light = ?, temperature = ? WHERE user_id = ?")
                 .bind(&body.light)
                 .bind(&body.temperature)
-                .bind(&token_data.claims.sub)
+                .bind(&token_data.sub)
                 .execute(state.storage.get_pool())
                 .await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         },
         None => {
             sqlx::query("INSERT INTO settings (user_id, light, temperature) VALUES (?, ?, ?)")
-                .bind(&token_data.claims.sub)
+                .bind(&token_data.sub)
                 .bind(&body.light)
                 .bind(&body.temperature)
                 .execute(state.storage.get_pool())

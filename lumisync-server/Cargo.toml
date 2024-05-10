@@ -19,6 +19,8 @@ config.workspace = true
 jsonwebtoken = "9"
 password-hash = { version = "0.5", features = ["getrandom"] }
 rumqttc = "0.24"
+rustls-native-certs = "0.7"
+rustls-pemfile = "2"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 serialport = "4.3"

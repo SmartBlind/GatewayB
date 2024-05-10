@@ -1,4 +1,3 @@
-use std::borrow::Cow::Borrowed;
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::time;
@@ -11,7 +10,6 @@ use axum::response::sse::Event;
 use chrono::{DateTime, Duration, Utc};
 use jsonwebtoken::TokenData;
 use serde::{Deserialize, Serialize};
-use sqlx::Error::Database;
 use tokio::sync::Mutex;
 use tokio::time::interval;
 use tokio_stream::{Stream, StreamExt, wrappers};
@@ -19,18 +17,18 @@ use tokio_stream::{Stream, StreamExt, wrappers};
 use crate::configs::storage::Storage;
 use crate::models::sensor::Sensor;
 use crate::models::sensor_data::SensorData;
-use crate::models::user::{Role, User};
+use crate::models::user::Role;
 use crate::services::token_service::TokenClaims;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SensorBody {
-    name: String,
+    pub name: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct TimeRangeQuery {
-    start: Option<DateTime<Utc>>,
-    end: Option<DateTime<Utc>>,
+    pub start: Option<DateTime<Utc>>,
+    pub end: Option<DateTime<Utc>>,
 }
 
 #[derive(Clone)]
@@ -39,47 +37,35 @@ pub struct SensorState {
 }
 
 pub async fn create_sensor(
-    Extension(token_data): Extension<TokenData<TokenClaims>>,
+    Extension(token_data): Extension<TokenClaims>,
     State(state): State<SensorState>,
     Json(body): Json<SensorBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    match Role::from(token_data.claims.role.clone()) {
+    match Role::from(token_data.role.clone()) {
         Role::Admin => {
-            let user: User = sqlx::query_as("SELECT * FROM users WHERE id = ?")
-                .bind(&token_data.claims.sub)
+            let sensor = sqlx::query_as::<_, Sensor>(
+                r#"
+                INSERT INTO sensors (group_id, name)
+                    VALUES ($1, $2)
+                    RETURNING *;
+                "#)
+                .bind(&token_data.group_id)
+                .bind(&body.name)
                 .fetch_one(state.storage.get_pool())
                 .await
-                .map_err(|_| StatusCode::NOT_FOUND)?;
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-            let result = sqlx::query("INSERT INTO sensors (group_id, name) VALUES (?, ?)")
-                .bind(&user.group_id)
-                .bind(&body.name)
-                .execute(state.storage.get_pool())
-                .await;
-
-            match result {
-                Ok(_) => {
-                    let sensors = sqlx::query_as::<_, Sensor>("SELECT * FROM sensors WHERE group_id = ?")
-                        .bind(&user.group_id)
-                        .fetch_all(state.storage.get_pool())
-                        .await
-                        .map_err(|_| StatusCode::NOT_FOUND)?;
-
-                    Ok(Json(sensors))
-                }
-                Err(Database(err)) if err.code() == Some(Borrowed("23000")) => Err(StatusCode::CONFLICT),
-                Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR)
-            }
+            Ok(Json(sensor))
         },
         _ => Err(StatusCode::FORBIDDEN)?,
     }
 }
 
 pub async fn get_sensors(
-    Extension(token_data): Extension<TokenData<TokenClaims>>,
+    Extension(token_data): Extension<TokenClaims>,
     State(state): State<SensorState>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    match Role::from(token_data.claims.role.clone()) {
+    match Role::from(token_data.role.clone()) {
         Role::Admin => {
             let sensors = sqlx::query_as::<_, Sensor>(
                 r#"
@@ -89,7 +75,7 @@ pub async fn get_sensors(
                         WHERE users.id = ?;
                 "#
             )
-                .bind(&token_data.claims.sub)
+                .bind(&token_data.sub)
                 .fetch_all(state.storage.get_pool())
                 .await
                 .map_err(|_| StatusCode::NOT_FOUND)?;
@@ -107,7 +93,7 @@ pub async fn get_sensors(
                         WHERE u.id = ?;
                 "#
             )
-                .bind(&token_data.claims.sub)
+                .bind(&token_data.sub)
                 .fetch_all(state.storage.get_pool())
                 .await
                 .map_err(|_| StatusCode::NOT_FOUND)?;

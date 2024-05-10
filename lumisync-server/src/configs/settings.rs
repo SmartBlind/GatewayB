@@ -77,12 +77,8 @@ impl Settings {
             .try_deserialize()?;
 
         if let Some(auth) = &settings.gateway.auth {
-            let cert_path = Self::normalize_path(&auth.cert_path)?
-                .to_string_lossy()
-                .to_string();
-            let key_path = Self::normalize_path(&auth.key_path)?
-                .to_string_lossy()
-                .to_string();
+            let cert_path = Self::normalize_path(&auth.cert_path)?.to_string_lossy().to_string();
+            let key_path = Self::normalize_path(&auth.key_path)?.to_string_lossy().to_string();
 
             settings.gateway.auth = Some(GatewayAuth { cert_path, key_path });
         }

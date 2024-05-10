@@ -15,7 +15,7 @@ void calibrateSync(int defaultStep = 1250) {
 }
 
 void onStep(int currentStep) {
-  Serial.println("{\"state\": " + String((float(step) / stepLimit) * 2.0 - 1.0) + "}");
+  Serial.println("{\"state\": " + String((float(currentStep) / stepLimit) * 2.0 - 1.0) + "}");
 }
 
 void setup() {

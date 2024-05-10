@@ -1,8 +1,10 @@
-use std::{error, fs, time};
+use std::{error, fs, io, time};
 use std::sync::Arc;
 
 use chrono::DateTime;
 use rumqttc::{AsyncClient, Event, EventLoop, MqttOptions, Packet, QoS, TlsConfiguration, Transport};
+use rumqttc::tokio_rustls::rustls::{ClientConfig, RootCertStore};
+use rustls_pemfile::{certs, Item, read_one};
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
@@ -35,13 +37,28 @@ impl SensorService {
         options.set_keep_alive(time::Duration::from_secs(5));
 
         if let Some(auth) = &gateway.auth {
-            let (client_cert, client_key) = (fs::read(&auth.cert_path)?, fs::read(&auth.key_path)?);
-            let tls_config = TlsConfiguration::Simple {
-                ca: client_cert.clone(),
-                alpn: None,
-                client_auth: Some((client_cert, client_key)),
+            let mut root_cert_store = RootCertStore::empty();
+            root_cert_store.add_parsable_certificates(rustls_native_certs::load_native_certs()?);
+
+            let certs = certs(&mut io::BufReader::new(fs::File::open(&auth.cert_path)?))
+                .map(|result| result.unwrap())
+                .collect();
+            let mut key_buffer = io::BufReader::new(fs::File::open(&auth.key_path)?);
+            let key = loop {
+                match read_one(&mut key_buffer)? {
+                    Some(Item::Sec1Key(key)) => break key.into(),
+                    Some(Item::Pkcs1Key(key)) => break key.into(),
+                    Some(Item::Pkcs8Key(key)) => break key.into(),
+                    None => return Err("no keys found or encrypted keys not supported".into()),
+                    _ => {}
+                }
             };
-            options.set_transport(Transport::Tls(tls_config));
+
+            let tls_config = ClientConfig::builder()
+                .with_root_certificates(root_cert_store)
+                .with_client_auth_cert(certs, key)?;
+
+            options.set_transport(Transport::Tls(TlsConfiguration::from(tls_config)));
         }
 
         let (client, event_loop) = AsyncClient::new(options, 10);
@@ -107,7 +124,12 @@ impl SensorService {
             if let Ok(data) = serde_json::from_str::<SensorPayload>(&payload_str) {
                 tracing::debug!("Receive: {:?}", data);
 
-                sqlx::query("INSERT INTO sensor_data (sensor_id, light, temperature, time) VALUES (?, ?, ?, DATETIME(?))")
+                sqlx::query(
+                    r#"
+                    INSERT INTO sensor_data (sensor_id, light, temperature, time)
+                        VALUES ((SELECT id from sensors WHERE name = ?), ?, ?, DATETIME(?))
+                    "#
+                )
                     .bind(&data.id)
                     .bind(&data.light)
                     .bind(&data.temperature)
