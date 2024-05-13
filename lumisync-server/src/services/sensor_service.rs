@@ -133,7 +133,7 @@ impl SensorService {
                     .bind(&data.id)
                     .bind(&data.light)
                     .bind(&data.temperature)
-                    .bind(DateTime::from_timestamp_millis(data.time_stamp))
+                    .bind(DateTime::from_timestamp(data.time_stamp, 0))
                     .execute(storage.get_pool())
                     .await?;
             }

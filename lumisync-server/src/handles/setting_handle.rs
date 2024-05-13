@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
+use axum::{Extension, Json};
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::{Extension, Json};
 use axum::response::IntoResponse;
-use jsonwebtoken::TokenData;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -14,6 +13,7 @@ use crate::services::token_service::TokenClaims;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SettingBody {
+    window_id: i32,
     light: i32,
     temperature: f32,
 }

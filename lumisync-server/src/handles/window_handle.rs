@@ -14,6 +14,7 @@ use crate::services::token_service::TokenClaims;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct WindowBody {
+    pub region_id: i32,
     pub name: String,
     pub state: f32,
 }
@@ -31,19 +32,21 @@ pub async fn create_window(
 ) -> Result<impl IntoResponse, StatusCode> {
     match Role::from(token_data.role.clone()) {
         Role::Admin => {
-            let window = sqlx::query_as::<_, Window>(
+            let window: Window = sqlx::query_as(
                 r#"
-                INSERT INTO windows (group_id, name, state)
+                INSERT INTO windows (region_id, name, state)
                     VALUES ($1, $2, $3)
                     RETURNING *;
                 "#
             )
-                .bind(&token_data.group_id)
+                .bind(body.region_id.to_string())
                 .bind(&body.name)
                 .bind(body.state)
                 .fetch_one(state.storage.get_pool())
                 .await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+
 
             Ok(Json(window))
         },
@@ -53,13 +56,14 @@ pub async fn create_window(
 
 pub async fn get_windows(
     Extension(token_data): Extension<TokenClaims>,
-    State(state): State<WindowState>
+    State(state): State<WindowState>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let windows = sqlx::query_as::<_, Window>(
+    let windows: Vec<Window> = sqlx::query_as(
         r#"
             SELECT w.* FROM users u
-                JOIN users_windows_link uw ON u.id = uw.user_id
-                JOIN windows w ON uw.window_id = w.id
+                JOIN users_regions_link ur ON u.id = ur.user_id
+                JOIN regions r ON ur.region_id = r.id
+                JOIN windows w ON r.id = w.region_id
                 WHERE u.id = $1;
         "#
     )
@@ -75,7 +79,7 @@ pub async fn get_window_owners(
     Path(window_id): Path<i32>,
     State(state): State<WindowState>
 ) -> Result<impl IntoResponse, StatusCode> {
-    let users = sqlx::query_as::<_, User>(
+    let users: Vec<User> = sqlx::query_as(
         r#"
         SELECT u.* FROM users u
             JOIN users_windows_link uw ON u.id = uw.user_id
@@ -97,21 +101,26 @@ pub async fn update_window(
     State(state): State<WindowState>,
     Json(body): Json<WindowBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let updated_window = sqlx::query_as::<_, Window>(
-        r#"
-        UPDATE windows SET name = $1, state = $2
-            WHERE id = $3
-            RETURNING *;
-        "#
-    )
-        .bind(&body.name)
-        .bind(&body.state)
-        .bind(window_id.to_string())
-        .fetch_one(state.storage.get_pool())
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    match Role::from(token_data.role.clone()) {
+        Role::Admin => {
+            let updated_window: Window = sqlx::query_as(
+                r#"
+                UPDATE windows SET name = $1, state = $2
+                    WHERE id = $3
+                    RETURNING *;
+                "#
+            )
+                .bind(&body.name)
+                .bind(&body.state)
+                .bind(window_id.to_string())
+                .fetch_one(state.storage.get_pool())
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    Ok(Json(updated_window))
+            Ok(Json(updated_window))
+        },
+        Role::User => Err(StatusCode::FORBIDDEN),
+    }
 }
 
 pub async fn delete_window(

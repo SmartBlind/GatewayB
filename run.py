@@ -55,6 +55,8 @@ def main():
 
     run_command("npm install", "\033[0;31m[Npm]\033[0;0m")
 
+    run_command("cargo install sqlx-cli", "\033[0;31m[Cargo]\033[0;0m")
+
     threads = []
 
     if use_mock:

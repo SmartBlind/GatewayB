@@ -108,7 +108,7 @@ async fn publish_env_message(
         // Message id
         "mId": index,
         // Message time stamp
-        "mTs": Utc::now().timestamp_millis(),
+        "mTs": Utc::now().timestamp(),
         // Air pressure in hPa: Defaults to standard pressure (1013.25 hPa) with a small random fluctuation between -3.0 to +3.0.
         "airp": airp.unwrap_or_else(|| (1013.25 + rng.gen_range(-3.0..3.0))),
         // Light level as a percentage in lx
@@ -125,7 +125,7 @@ async fn publish_env_message(
 
     let env_topic = format!("{prefix}/{customer_id}/{id}/{index}");
 
-    tracing::debug!("Send: {}", &env_msg);
+    tracing::debug!("Topic: {}, Send: {}", &env_topic, &env_msg);
 
     client.publish(env_topic, to_vec(&env_msg)?)?;
 

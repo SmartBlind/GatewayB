@@ -33,7 +33,7 @@ pub async fn run(settings: &Arc<Settings>) {
 
     let listener = TcpListener::bind(&address).await.unwrap();
 
-    tracing::info!("listening on {}", address);
+    tracing::info!("listening on {:?}", address);
 
     axum::serve(listener, app).await.unwrap();
 }

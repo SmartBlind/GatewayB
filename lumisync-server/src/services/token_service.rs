@@ -16,9 +16,8 @@ pub struct Token {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenClaims {
-    pub sub: String,
-    pub group_id: String,
-    pub email: String,
+    pub sub: i32,
+    pub group_id: i32,
     pub role: String,
     pub iat: u64,
     pub exp: u64,
@@ -26,8 +25,8 @@ pub struct TokenClaims {
 
 #[derive(Clone)]
 pub struct TokenService {
-    expiration: u64,
     secret: String,
+    expiration: u64,
 }
 
 impl TokenService {
@@ -56,10 +55,9 @@ impl TokenService {
         let exp = iat + self.expiration;
 
         let claims = TokenClaims {
-            sub: user.id.to_string(),
-            group_id: user.group_id.to_string(),
-            email: user.email.to_string(),
-            role: user.role.to_string(),
+            sub: user.id,
+            group_id: user.group_id,
+            role: user.role.clone(),
             iat,
             exp,
         };
@@ -98,9 +96,8 @@ mod tests {
 
         let claims = token_service.retrieve_token_claims(&token.token).unwrap().claims;
 
-        assert_eq!(claims.sub, user.id.to_string());
-        assert_eq!(claims.group_id, user.group_id.to_string());
-        assert_eq!(claims.email, user.email);
+        assert_eq!(claims.sub, user.id);
+        assert_eq!(claims.group_id, user.group_id);
         assert_eq!(claims.role, user.role);
     }
 }

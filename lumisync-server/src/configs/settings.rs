@@ -1,21 +1,25 @@
-use std::{env, fs};
-use std::path::{Path, PathBuf};
+use std::env;
+use std::error::Error;
+use std::path::Path;
 
 use config::{Config, ConfigError, Environment, File};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use serde::de::DeserializeOwned;
 
-#[derive(Debug, Clone, Deserialize)]
+use crate::configs::normalize_path;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Server {
     pub host: String,
     pub port: u16,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Logger {
     pub level: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Gateway {
     pub host: String,
     pub port: u16,
@@ -24,38 +28,39 @@ pub struct Gateway {
     pub auth: Option<GatewayAuth>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GatewayAuth {
     pub cert_path: String,
     pub key_path: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GatewayTopic {
     pub prefix_type: String,
     pub prefix_mode: String,
     pub prefix_country: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Database {
-    pub migrate: Option<String>,
-    pub clean: bool,
+    pub migration_path: Option<String>,
+    pub clean_start: bool,
     pub url: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Embedded {
+    pub baud_rate: u32,
     pub port_path: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Auth {
     pub secret: String,
     pub expiration: u64,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub server: Server,
     pub logger: Logger,
@@ -72,41 +77,60 @@ impl Settings {
         let mut settings: Settings = Config::builder()
             .add_source(File::with_name("configs/default"))
             .add_source(File::with_name(&format!("configs/{run_mode}")).required(false))
-            .add_source(Environment::default().separator("__"))
+            .add_source(Environment::default().separator("_"))
             .build()?
             .try_deserialize()?;
 
         if let Some(auth) = &settings.gateway.auth {
-            let cert_path = Self::normalize_path(&auth.cert_path)?.to_string_lossy().to_string();
-            let key_path = Self::normalize_path(&auth.key_path)?.to_string_lossy().to_string();
+            let cert_path = normalize_path(&auth.cert_path)
+                .map_err(|e| ConfigError::Message(e.to_string()))?
+                .to_string_lossy()
+                .to_string();
+            let key_path = normalize_path(&auth.key_path)
+                .map_err(|e| ConfigError::Message(e.to_string()))?
+                .to_string_lossy()
+                .to_string();
 
             settings.gateway.auth = Some(GatewayAuth { cert_path, key_path });
         }
 
-        if let Some(migrate) = &settings.database.migrate {
-            if Path::new(migrate).exists() {
-                let migrate_path = Self::normalize_path(&migrate)?;
+        if let Some(migrate) = &settings.database.migration_path {
+            if Path::new(migrate).is_dir() {
+                let migrate_path = normalize_path(&migrate)
+                    .map_err(|e| ConfigError::Message(e.to_string()))?
+                    .to_string_lossy()
+                    .to_string();
 
-                let data = fs::read(migrate_path).unwrap();
-                let script = String::from_utf8_lossy(&data);
-
-                settings.database.migrate = Some(script.into_owned());
+                settings.database.migration_path = Some(migrate_path);
+            } else {
+                settings.database.migration_path = None;
             }
         }
 
         Ok(settings)
     }
 
-    fn normalize_path(path: &str) -> Result<PathBuf, ConfigError> {
-        let path_buf = PathBuf::from(path);
+    pub fn merge<L, R, T>(left: L, right: R) -> Result<T, Box<dyn Error>>
+        where
+            L: Serialize,
+            R: Serialize,
+            T: Serialize + DeserializeOwned,
+    {
+        let mut left_map = serde_json::to_value(&left)?
+            .as_object()
+            .map(|map| map.to_owned())
+            .ok_or("Failed to serialize left value which is not an object")?;
 
-        Ok(if path_buf.is_absolute() {
-            path_buf.clone()
-        } else {
-            env::current_dir()
-                .map_err(|e| ConfigError::Message(e.to_string()))?
-                .as_path()
-                .join(&path_buf)
-        })
+        let mut right_map = serde_json::to_value(&right)?
+            .as_object()
+            .map(|map| map.to_owned())
+            .ok_or("Failed to serialize right value which is not an object")?;
+
+        right_map.retain(|_, v| !v.is_null());
+        left_map.extend(right_map);
+
+        let value = serde_json::to_value(&left_map)?;
+
+        Ok(serde_json::from_value(value)?)
     }
 }

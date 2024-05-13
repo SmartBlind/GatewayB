@@ -5,7 +5,7 @@ use crate::models::Table;
 #[derive(Serialize, Deserialize, sqlx::FromRow)]
 pub struct Window {
     pub id: i32,
-    pub group_id: i32,
+    pub region_id: i32,
     pub name: String,
     /// State in a range of [-1, 1].
     /// when 0 means off;
@@ -22,10 +22,10 @@ impl Table for WindowTable {
             r#"
             CREATE TABLE IF NOT EXISTS windows (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                group_id INTEGER NOT NULL,
-                name TEXT NOT NULL,
+                region_id INTEGER NOT NULL,
+                name TEXT NOT NULL UNIQUE,
                 state REAL NOT NULL,
-                FOREIGN KEY (group_id) REFERENCES groups (id) ON DELETE CASCADE
+                FOREIGN KEY (region_id) REFERENCES regions (id) ON DELETE CASCADE
             );
             "#
         )

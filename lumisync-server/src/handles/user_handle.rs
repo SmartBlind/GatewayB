@@ -7,7 +7,7 @@ use axum::response::IntoResponse;
 use serde::{Deserialize, Serialize};
 
 use crate::configs::storage::Storage;
-use crate::models::user::{Role, User};
+use crate::models::user::User;
 use crate::services::auth_service::AuthService;
 use crate::services::token_service::TokenService;
 
@@ -39,7 +39,7 @@ pub async fn create_user(
     let hash_password = state.auth_service.hash(&body.password)
         .map_err(|_| StatusCode::FORBIDDEN)?;
 
-    let user = sqlx::query_as::<_, User>(
+    let user: User = sqlx::query_as(
         r#"
         INSERT INTO users (group_id, email, password, role)
             VALUES ((SELECT id FROM groups WHERE name = $1), $2, $3, $4)
@@ -49,7 +49,7 @@ pub async fn create_user(
         .bind(&body.group)
         .bind(&body.email)
         .bind(&hash_password)
-        .bind(Role::User.to_string())
+        .bind(&body.role)
         .fetch_one(state.storage.get_pool())
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;

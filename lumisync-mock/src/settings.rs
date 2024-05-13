@@ -45,7 +45,7 @@ impl Settings {
         let mut settings: Settings = Config::builder()
             .add_source(File::with_name("configs/default"))
             .add_source(File::with_name(&format!("configs/{run_mode}")).required(false))
-            .add_source(Environment::default().separator("__"))
+            .add_source(Environment::default().separator("_"))
             .build()?
             .try_deserialize()?;
 

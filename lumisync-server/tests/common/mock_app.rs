@@ -3,6 +3,7 @@ use std::sync::Arc;
 use lumisync_server::configs::settings::{Auth, Database};
 use lumisync_server::configs::storage::Storage;
 use lumisync_server::models::group::Group;
+use lumisync_server::models::region::Region;
 use lumisync_server::models::sensor::Sensor;
 use lumisync_server::models::user::User;
 use lumisync_server::models::window::Window;
@@ -18,8 +19,8 @@ pub struct MockApp {
 impl MockApp {
     pub async fn new() -> Self {
         let storage = Arc::new(Storage::new(Database {
-            migrate: None,
-            clean: false,
+            migration_path: None,
+            clean_start: true,
             url: String::from("sqlite::memory:"),
         }).await.unwrap());
         storage.create_tables().await.unwrap();
@@ -38,7 +39,7 @@ impl MockApp {
     }
 
     pub async fn create_test_group(&self) -> Group {
-        sqlx::query_as::<_, Group>("INSERT INTO groups (name) VALUES ('sample') RETURNING *")
+        sqlx::query_as::<_, Group>("INSERT INTO groups (name) VALUES ('sample') RETURNING *;")
             .fetch_one(self.storage.get_pool())
             .await
             .unwrap()
@@ -62,11 +63,11 @@ impl MockApp {
             .unwrap()
     }
 
-    pub async fn create_test_window(&self) -> Window {
-        let window = sqlx::query_as::<_, Window>(
+    pub async fn create_test_region(&self) -> Region {
+        let region = sqlx::query_as::<_, Region>(
             r#"
-            INSERT INTO windows (group_id, name, state)
-                VALUES (1, 'Test Room', 0)
+            INSERT INTO regions (group_id, name, light, temperature)
+                VALUES (1, 'Test Room', 6, 22.5)
                 RETURNING *;
             "#
         )
@@ -74,18 +75,31 @@ impl MockApp {
             .await
             .unwrap();
 
-        sqlx::query("INSERT INTO users_windows_link (user_id, window_id) VALUES (1, 1)")
+        sqlx::query("INSERT INTO users_regions_link (user_id, region_id) VALUES (1, 1);")
             .execute(self.storage.get_pool())
             .await
             .unwrap();
 
-        window
+        region
+    }
+
+    pub async fn create_test_window(&self) -> Window {
+        sqlx::query_as::<_, Window>(
+            r#"
+            INSERT INTO windows (region_id, name, state)
+                VALUES (1, 'Test Window', 0)
+                RETURNING *;
+            "#
+        )
+            .fetch_one(self.storage.get_pool())
+            .await
+            .unwrap()
     }
 
     pub async fn create_test_sensor(&self) -> Sensor {
         let sensor = sqlx::query_as::<_, Sensor>(
             r#"
-            INSERT INTO sensors (group_id, name)
+            INSERT INTO sensors (region_id, name)
                 VALUES (1, 'SENSOR-MOCK')
                 RETURNING *;
             "#
@@ -94,7 +108,7 @@ impl MockApp {
             .await
             .unwrap();
 
-        sqlx::query("INSERT INTO windows_sensors_link (window_id, sensor_id) VALUES (1, 1);")
+        sqlx::query("INSERT INTO regions_sensors_link (region_id, sensor_id) VALUES (1, 1);")
             .execute(self.storage.get_pool())
             .await
             .unwrap();

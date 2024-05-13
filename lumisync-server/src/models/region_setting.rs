@@ -3,23 +3,23 @@ use serde::{Deserialize, Serialize};
 use crate::models::Table;
 
 #[derive(Serialize, Deserialize, sqlx::FromRow)]
-pub struct WindowSetting {
+pub struct RegionSetting {
     pub id: i32,
-    pub window_id: i32,
+    pub region_id: i32,
     pub setting_id: i32,
 }
 
-pub struct WindowSettingTable;
+pub struct RegionSettingTable;
 
-impl Table for WindowSettingTable {
+impl Table for RegionSettingTable {
     fn create(&self) -> String {
         String::from(
             r#"
-            CREATE TABLE IF NOT EXISTS windows_settings (
+            CREATE TABLE IF NOT EXISTS regions_settings (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                window_id INTEGER NOT NULL,
+                region_id INTEGER NOT NULL,
                 setting_id INTEGER NOT NULL,
-                FOREIGN KEY (window_id) REFERENCES windows (id) ON DELETE CASCADE,
+                FOREIGN KEY (region_id) REFERENCES regions (id) ON DELETE CASCADE,
                 FOREIGN KEY (setting_id) REFERENCES settings (id) ON DELETE CASCADE
             );
             "#
@@ -27,6 +27,6 @@ impl Table for WindowSettingTable {
     }
 
     fn dispose(&self) -> String {
-        String::from("DROP TABLE IF EXISTS windows_settings;")
+        String::from("DROP TABLE IF EXISTS regions_settings;")
     }
 }

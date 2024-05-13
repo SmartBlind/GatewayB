@@ -8,7 +8,6 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Sse};
 use axum::response::sse::Event;
 use chrono::{DateTime, Duration, Utc};
-use jsonwebtoken::TokenData;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use tokio::time::interval;
@@ -22,6 +21,7 @@ use crate::services::token_service::TokenClaims;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SensorBody {
+    pub region_id: i32,
     pub name: String,
 }
 
@@ -45,11 +45,11 @@ pub async fn create_sensor(
         Role::Admin => {
             let sensor = sqlx::query_as::<_, Sensor>(
                 r#"
-                INSERT INTO sensors (group_id, name)
+                INSERT INTO sensors (region_id, name)
                     VALUES ($1, $2)
                     RETURNING *;
                 "#)
-                .bind(&token_data.group_id)
+                .bind(body.region_id.to_string())
                 .bind(&body.name)
                 .fetch_one(state.storage.get_pool())
                 .await
@@ -69,13 +69,13 @@ pub async fn get_sensors(
         Role::Admin => {
             let sensors = sqlx::query_as::<_, Sensor>(
                 r#"
-                    SELECT sensors.* FROM sensors
-                        JOIN groups ON sensors.group_id = groups.id
-                        JOIN users ON groups.id = users.group_id
-                        WHERE users.id = ?;
+                    SELECT sensors.* FROM groups
+                        JOIN regions ON groups.id = regions.group_id
+                        JOIN sensors ON regions.id = sensors.region_id
+                        WHERE groups.id = ?;
                 "#
             )
-                .bind(&token_data.sub)
+                .bind(&token_data.group_id)
                 .fetch_all(state.storage.get_pool())
                 .await
                 .map_err(|_| StatusCode::NOT_FOUND)?;
@@ -85,11 +85,10 @@ pub async fn get_sensors(
         Role::User => {
             let sensors = sqlx::query_as::<_, Sensor>(
                 r#"
-                    SELECT DISTINCT s.* FROM users u
-                        JOIN users_windows_link uw ON u.id = uw.user_id
-                        JOIN windows w ON uw.window_id = w.id
-                        JOIN windows_sensors_link ws ON w.id = ws.window_id
-                        JOIN sensors s ON ws.sensor_id = s.id
+                    SELECT s.* FROM users u
+                        JOIN users_regions_link ur ON u.id = ur.user_id
+                        JOIN regions r ON ur.region_id = r.id
+                        JOIN sensors s ON r.id = s.region_id
                         WHERE u.id = ?;
                 "#
             )

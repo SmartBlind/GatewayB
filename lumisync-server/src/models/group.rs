@@ -16,7 +16,7 @@ impl Table for GroupTable {
             r#"
             CREATE TABLE IF NOT EXISTS groups (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL
+                name TEXT NOT NULL UNIQUE
             );
             "#
         )
