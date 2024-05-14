@@ -11,7 +11,7 @@ use crate::configs::storage::Storage;
 use crate::handles::control_handle::{ControlState, execute_command};
 use crate::handles::sensor_handle::{get_sensor_data, get_sensor_data_in_range, get_sensors, SensorState};
 use crate::handles::setting_handle::{save_setting, SettingState};
-use crate::handles::user_handle::{authenticate_user, create_user, UserState};
+use crate::handles::user_handle::{authenticate_user, authorize_user, create_user, UserState};
 use crate::handles::window_handle::{create_window, delete_window, get_window_owners, get_windows, update_window, WindowState};
 use crate::services::actuator_service::ActuatorService;
 use crate::services::auth_service::AuthService;
@@ -51,7 +51,8 @@ async fn create_app(settings: &Arc<Settings>) -> Router {
 
     let user = Router::new()
         .route("/register", post(create_user))
-        .route("/auth", post(authenticate_user))
+        .route("/authorize", get(authorize_user))
+        .route("/authenticate", post(authenticate_user))
         .with_state(UserState {
             auth_service: auth_service.clone(),
             token_service: token_service.clone(),

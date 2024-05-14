@@ -6,7 +6,15 @@ export const API = {
     "sensors": `${globalThis.__APP_API_URL__}/sensors`,
 }
 
-// This is for debug
+globalThis.token = localStorage.getItem("auth_token");
+
+/**
+ * Send serial port command [This is for debug]
+ *
+ * @param {string} command
+ * @param {function(): void} callback
+ * @return {Promise<void>}
+ */
 export async function control(command, callback) {
     try {
         const response = await fetch(`${API.control}/${command}`);
@@ -22,6 +30,13 @@ export async function control(command, callback) {
     }
 }
 
+/**
+ * Register user, call `user_handle::create_user`.
+ *
+ * @param {{group: string, email: string, password: string, role: string}} data
+ * @param {function(string): void} callback
+ * @return {Promise<void>}
+ */
 export async function registerUser(data, callback) {
     try {
         const response = await fetch(`${API.users}/register`, {
@@ -33,7 +48,7 @@ export async function registerUser(data, callback) {
         });
 
         if (response.ok) {
-            callback?.(await response.json());
+            callback?.(await response.text());
             console.log("Register user successfully!");
         } else {
             console.error("Failed to register user");
@@ -43,9 +58,42 @@ export async function registerUser(data, callback) {
     }
 }
 
+/**
+ * Authorize user, call `user_handle::authorize_user`.
+ *
+ * @param {function(string): void} callback
+ * @return {Promise<void>}
+ */
+export async function authUser(callback) {
+    try {
+        const response = await fetch(`${API.users}/authorize`, {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${globalThis.token}`
+            },
+        });
+
+        if (response.ok) {
+            callback?.(await response.text());
+            console.log("Auth successfully!");
+        } else {
+            console.error("Failed to Auth.");
+        }
+    } catch (error) {
+        console.error("Internal error:", error);
+    }
+}
+
+/**
+ * Authenticate user, call `user_handle::authenticate_user`.
+ *
+ * @param {{email: string, password: string}} data
+ * @param {function(string): void} callback
+ * @return {Promise<void>}
+ */
 export async function loginUser(data, callback) {
     try {
-        const response = await fetch(`${API.users}/auth`, {
+        const response = await fetch(`${API.users}/authenticate`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -54,7 +102,7 @@ export async function loginUser(data, callback) {
         });
 
         if (response.ok) {
-            callback?.(await response.json());
+            callback?.(await response.text());
             console.log("Login successfully!");
         } else {
             console.error("Failed to login.");

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::Table;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Role {
     Admin,
     User,
@@ -28,7 +28,7 @@ impl Display for Role {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, sqlx::FromRow)]
+#[derive(Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct User {
     pub id: i32,
     pub group_id: i32,

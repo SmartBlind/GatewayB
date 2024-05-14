@@ -1,17 +1,17 @@
 use std::sync::Arc;
 
+use axum::{Extension, Json};
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::Json;
 use axum::response::IntoResponse;
 use serde::{Deserialize, Serialize};
 
 use crate::configs::storage::Storage;
 use crate::models::user::User;
 use crate::services::auth_service::AuthService;
-use crate::services::token_service::TokenService;
+use crate::services::token_service::{TokenClaims, TokenService};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct UserRegisterBody {
     pub group: String,
     pub email: String,
@@ -19,8 +19,8 @@ pub struct UserRegisterBody {
     pub role: String,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
-pub struct UserAuthBody {
+#[derive(Clone, Serialize, Deserialize)]
+pub struct UserLoginBody {
     pub email: String,
     pub password: String,
 }
@@ -54,15 +54,28 @@ pub async fn create_user(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let token_data = state.token_service.generate_token(&user)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let token = state.token_service.generate_token(user.to_owned())
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .token;
 
-    Ok(token_data.token)
+    Ok(token)
+}
+
+pub async fn authorize_user(
+    Extension(token_data): Extension<TokenClaims>,
+    State(state): State<UserState>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let token = state.token_service
+        .generate_token(token_data)
+        .map_err(|_| StatusCode::BAD_REQUEST)?
+        .token;
+
+    Ok(token)
 }
 
 pub async fn authenticate_user(
     State(state): State<UserState>,
-    Json(body): Json<UserAuthBody>,
+    Json(body): Json<UserLoginBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user: User = sqlx::query_as("SELECT * FROM users WHERE email = $1")
         .bind(&body.email)
@@ -74,10 +87,11 @@ pub async fn authenticate_user(
         .map_err(|_| StatusCode::BAD_REQUEST)?;
 
     if result {
-        let token_data = state.token_service.generate_token(&user)
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let token = state.token_service.generate_token(user.to_owned())
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+            .token;
 
-        Ok(token_data.token)
+        Ok(token)
     } else {
         Err(StatusCode::BAD_REQUEST)
     }

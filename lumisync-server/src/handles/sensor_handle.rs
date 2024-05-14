@@ -9,6 +9,7 @@ use axum::response::{IntoResponse, Sse};
 use axum::response::sse::Event;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::QueryBuilder;
 use tokio::sync::Mutex;
 use tokio::time::interval;
 use tokio_stream::{Stream, StreamExt, wrappers};
@@ -19,13 +20,13 @@ use crate::models::sensor_data::SensorData;
 use crate::models::user::Role;
 use crate::services::token_service::TokenClaims;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct SensorBody {
     pub region_id: i32,
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct TimeRangeQuery {
     pub start: Option<DateTime<Utc>>,
     pub end: Option<DateTime<Utc>>,
@@ -41,15 +42,16 @@ pub async fn create_sensor(
     State(state): State<SensorState>,
     Json(body): Json<SensorBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    match Role::from(token_data.role.clone()) {
+    match Role::from(token_data.role.to_owned()) {
         Role::Admin => {
-            let sensor = sqlx::query_as::<_, Sensor>(
+            let sensor: Sensor = sqlx::query_as(
                 r#"
                 INSERT INTO sensors (region_id, name)
                     VALUES ($1, $2)
                     RETURNING *;
-                "#)
-                .bind(body.region_id.to_string())
+                "#
+            )
+                .bind(&body.region_id)
                 .bind(&body.name)
                 .fetch_one(state.storage.get_pool())
                 .await
@@ -65,9 +67,9 @@ pub async fn get_sensors(
     Extension(token_data): Extension<TokenClaims>,
     State(state): State<SensorState>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    match Role::from(token_data.role.clone()) {
+    match Role::from(token_data.role.to_owned()) {
         Role::Admin => {
-            let sensors = sqlx::query_as::<_, Sensor>(
+            let sensors: Vec<Sensor> = sqlx::query_as(
                 r#"
                     SELECT sensors.* FROM groups
                         JOIN regions ON groups.id = regions.group_id
@@ -112,15 +114,15 @@ pub async fn get_sensor_data(
 
     let stream = wrappers::IntervalStream::new(interval(time::Duration::from_secs(3)))
         .then(move |_| {
-            let id = sensor_id.clone();
-            let database = Arc::clone(&state.storage);
-            let last_timestamp = Arc::clone(&last_timestamp);
+            let id = sensor_id.to_owned();
+            let database = state.storage.to_owned();
+            let last_timestamp = last_timestamp.to_owned();
             async move {
                 let last_time = *last_timestamp.lock().await;
                 let result = sqlx::query_as::<_, SensorData>(
                     r#"
                     SELECT * FROM sensor_data
-                        WHERE sensor_id = ? AND time > DATETIME(?)
+                        WHERE sensor_id = $1 AND time > DATETIME($2)
                         ORDER BY time;
                     "#
                 )
@@ -149,19 +151,26 @@ pub async fn get_sensor_data_in_range(
     Query(range): Query<TimeRangeQuery>,
     State(state): State<SensorState>
 ) -> Result<impl IntoResponse, StatusCode> {
-    let mut conditions = vec!["sensor_id = ?"];
+    let mut query = QueryBuilder::new("SELECT * FROM sensor_data WHERE sensor_id = $1");
+    query.push_bind(&sensor_id);
 
-    if range.start.is_some() { conditions.push("time >= ?"); }
-    if range.end.is_some() { conditions.push("time <= ?"); }
+    let mut index = 2;
 
-    let where_clause = conditions.join(" AND ");
+    if let Some(start) = range.start {
+        query.push(format!(" AND time >= ${}", index));
+        query.push_bind(start);
+        index += 1;
+    }
 
-    let key_point = sqlx::query_as::<_, SensorData>(
-        &format!("SELECT * FROM sensor_data WHERE {where_clause} ORDER BY time")
-    )
-        .bind(&sensor_id)
-        .bind(range.start)
-        .bind(range.end)
+    if let Some(end) = range.end {
+        query.push(format!(" AND time <= ${}", index));
+        query.push_bind(end);
+    }
+
+    query.push(" ORDER BY time");
+
+    let key_point: Vec<SensorData> = query
+        .build_query_as()
         .fetch_all(state.storage.get_pool())
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;

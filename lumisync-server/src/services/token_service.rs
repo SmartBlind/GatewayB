@@ -23,6 +23,33 @@ pub struct TokenClaims {
     pub exp: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenPayload {
+    pub id: i32,
+    pub group_id: i32,
+    pub role: String,
+}
+
+impl From<User> for TokenPayload {
+    fn from(user: User) -> Self {
+        TokenPayload {
+            id: user.id,
+            group_id: user.group_id,
+            role: user.role,
+        }
+    }
+}
+
+impl From<TokenClaims> for TokenPayload {
+    fn from(token: TokenClaims) -> Self {
+        TokenPayload {
+            id: token.sub,
+            group_id: token.group_id,
+            role: token.role,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct TokenService {
     secret: String,
@@ -47,17 +74,19 @@ impl TokenService {
         Ok(data)
     }
 
-    pub fn generate_token(&self, user: &User) -> Result<Token, Box<dyn Error>> {
+    pub fn generate_token<T: Into<TokenPayload>>(&self, payload: T) -> Result<Token, Box<dyn Error>> {
         let iat = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("Time went backwards")
             .as_secs();
         let exp = iat + self.expiration;
 
+        let token_payload = payload.into();
+
         let claims = TokenClaims {
-            sub: user.id,
-            group_id: user.group_id,
-            role: user.role.clone(),
+            sub: token_payload.id,
+            group_id: token_payload.group_id,
+            role: token_payload.role,
             iat,
             exp,
         };
@@ -92,7 +121,7 @@ mod tests {
             role: String::from("test"),
         };
 
-        let token = token_service.generate_token(&user).unwrap();
+        let token = token_service.generate_token(user.to_owned()).unwrap();
 
         let claims = token_service.retrieve_token_claims(&token.token).unwrap().claims;
 

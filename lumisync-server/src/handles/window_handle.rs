@@ -12,7 +12,7 @@ use crate::models::window::Window;
 use crate::services::actuator_service::ActuatorService;
 use crate::services::token_service::TokenClaims;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct WindowBody {
     pub region_id: i32,
     pub name: String,
@@ -39,9 +39,9 @@ pub async fn create_window(
                     RETURNING *;
                 "#
             )
-                .bind(body.region_id.to_string())
+                .bind(&body.region_id)
                 .bind(&body.name)
-                .bind(body.state)
+                .bind(&body.state)
                 .fetch_one(state.storage.get_pool())
                 .await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -87,7 +87,7 @@ pub async fn get_window_owners(
             WHERE w.id = $1;
         "#
     )
-        .bind(window_id.to_string())
+        .bind(&window_id)
         .fetch_all(state.storage.get_pool())
         .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
@@ -112,7 +112,7 @@ pub async fn update_window(
             )
                 .bind(&body.name)
                 .bind(&body.state)
-                .bind(window_id.to_string())
+                .bind(&window_id)
                 .fetch_one(state.storage.get_pool())
                 .await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -131,7 +131,7 @@ pub async fn delete_window(
     match Role::from(token_data.role.clone()) {
         Role::Admin => {
             sqlx::query("DELETE FROM windows WHERE id = $1")
-                .bind(window_id.to_string())
+                .bind(&window_id)
                 .execute(state.storage.get_pool())
                 .await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -140,7 +140,7 @@ pub async fn delete_window(
         },
         Role::User => {
             sqlx::query("DELETE FROM users_windows_link WHERE window_id = $1 AND user_id = $2")
-                .bind(window_id.to_string())
+                .bind(&window_id)
                 .bind(&token_data.sub)
                 .execute(state.storage.get_pool())
                 .await

@@ -11,7 +11,7 @@ use crate::configs::storage::Storage;
 use crate::models::setting::Setting;
 use crate::services::token_service::TokenClaims;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct SettingBody {
     window_id: i32,
     light: i32,

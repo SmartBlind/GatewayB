@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use axum::{Extension, http, middleware, Router};
 use axum::body::{Body, to_bytes};
 use axum::http::{Request, StatusCode};
@@ -6,7 +8,7 @@ use tower::ServiceExt;
 
 use lumisync_server::handles::region_handle::{create_region, get_regions, RegionBody, RegionState};
 use lumisync_server::handles::sensor_handle::{create_sensor, get_sensors, SensorBody, SensorState};
-use lumisync_server::handles::user_handle::{authenticate_user, create_user, UserAuthBody, UserRegisterBody, UserState};
+use lumisync_server::handles::user_handle::{authenticate_user, authorize_user, create_user, UserLoginBody, UserRegisterBody, UserState};
 use lumisync_server::handles::window_handle::{create_window, delete_window, get_windows, update_window, WindowBody, WindowState};
 use lumisync_server::middlewares::auth_middleware::{auth, TokenState};
 use lumisync_server::models::user::User;
@@ -39,7 +41,7 @@ async fn test_auth_middleware() {
         role: String::from("test"),
     };
 
-    let token = app.token_service.generate_token(&user).unwrap();
+    let token = app.token_service.generate_token(user.to_owned()).unwrap();
 
     let response = test_router
         .oneshot(
@@ -138,20 +140,70 @@ async fn test_user_register_router() {
 }
 
 #[tokio::test]
-async fn test_user_auth_router() {
+async fn test_user_authorize_router() {
     let app = MockApp::new().await;
     let group = app.create_test_group().await;
     let user = app.create_test_user().await;
 
     let user_router = Router::new()
-        .route("/auth", post(authenticate_user))
+        .route("/authorize", get(authorize_user))
+        .with_state(UserState {
+            auth_service: app.auth_service.clone(),
+            token_service: app.token_service.clone(),
+            storage: app.storage.clone(),
+        })
+        .layer(middleware::from_fn_with_state(TokenState {
+            token_service: app.token_service.clone(),
+            storage: app.storage.clone(),
+        }, auth));
+
+    let token = app.token_service.generate_token(user.to_owned()).unwrap();
+
+    tokio::time::sleep(Duration::from_secs(1)).await;
+
+    let response = user_router
+        .oneshot(
+            Request::builder()
+                .method(http::Method::GET)
+                .uri("/authorize")
+                .header("Authorization", format!("Bearer {}", token.token))
+                .body(Body::empty())
+                .unwrap()
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let res_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let res_body_str = String::from_utf8(res_body.to_vec()).unwrap();
+    let claims = app
+        .token_service
+        .retrieve_token_claims(&res_body_str)
+        .unwrap()
+        .claims;
+
+    assert_eq!(claims.sub, user.id);
+    assert_eq!(claims.group_id, group.id);
+    assert_eq!(claims.role, user.role);
+    assert_ne!(res_body_str, token.token);
+}
+
+#[tokio::test]
+async fn test_user_authenticate_router() {
+    let app = MockApp::new().await;
+    let group = app.create_test_group().await;
+    let user = app.create_test_user().await;
+
+    let user_router = Router::new()
+        .route("/authenticate", post(authenticate_user))
         .with_state(UserState {
             auth_service: app.auth_service.clone(),
             token_service: app.token_service.clone(),
             storage: app.storage.clone(),
         });
 
-    let req_body = serde_json::to_string(&UserAuthBody {
+    let req_body = serde_json::to_string(&UserLoginBody {
         email: user.email,
         password: String::from("test"),
     }).unwrap();
@@ -160,7 +212,7 @@ async fn test_user_auth_router() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/auth")
+                .uri("/authenticate")
                 .header("Content-Type", "application/json")
                 .body(Body::from(req_body))
                 .unwrap()
@@ -199,7 +251,7 @@ async fn test_region_create_router() {
             storage: app.storage.clone(),
         }, auth));
 
-    let token = app.token_service.generate_token(&user).unwrap();
+    let token = app.token_service.generate_token(user.to_owned()).unwrap();
 
     let req_body = serde_json::to_string(&RegionBody {
         user_ids: vec![],
@@ -246,7 +298,7 @@ async fn test_region_get_router() {
             storage: app.storage.clone(),
         }, auth));
 
-    let token = app.token_service.generate_token(&user).unwrap();
+    let token = app.token_service.generate_token(user.to_owned()).unwrap();
 
     let response = region_router
         .oneshot(
@@ -286,7 +338,7 @@ async fn test_window_create_router() {
             storage: app.storage.clone(),
         }, auth));
 
-    let token = app.token_service.generate_token(&user).unwrap();
+    let token = app.token_service.generate_token(user.to_owned()).unwrap();
 
     let req_body = serde_json::to_string(&WindowBody {
         region_id: region.id,
@@ -334,7 +386,7 @@ async fn test_window_get_router() {
             storage: app.storage.clone(),
         }, auth));
 
-    let token = app.token_service.generate_token(&user).unwrap();
+    let token = app.token_service.generate_token(user.to_owned()).unwrap();
 
     let response = window_router
         .oneshot(
@@ -375,7 +427,7 @@ async fn test_window_update_router() {
             storage: app.storage.clone(),
         }, auth));
 
-    let token = app.token_service.generate_token(&user).unwrap();
+    let token = app.token_service.generate_token(user.to_owned()).unwrap();
 
     let req_body = serde_json::to_string(&WindowBody {
         region_id: region.id,
@@ -423,7 +475,7 @@ async fn test_window_delete_router() {
             storage: app.storage.clone(),
         }, auth));
 
-    let token = app.token_service.generate_token(&user).unwrap();
+    let token = app.token_service.generate_token(user.to_owned()).unwrap();
 
     let response = window_router
         .oneshot(
@@ -458,7 +510,7 @@ async fn test_sensor_create_router() {
             storage: app.storage.clone(),
         }, auth));
 
-    let token = app.token_service.generate_token(&user).unwrap();
+    let token = app.token_service.generate_token(user.to_owned()).unwrap();
 
     let req_body = serde_json::to_string(&SensorBody {
         region_id: 1,
@@ -505,7 +557,7 @@ async fn test_sensor_get_router() {
             storage: app.storage.clone(),
         }, auth));
 
-    let token = app.token_service.generate_token(&user).unwrap();
+    let token = app.token_service.generate_token(user.to_owned()).unwrap();
 
     let response = sensor_router
         .oneshot(
