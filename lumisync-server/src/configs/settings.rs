@@ -1,12 +1,10 @@
-use std::env;
-use std::error::Error;
-use std::path::Path;
+use std::{env, error, fs, io};
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
-use config::{Config, ConfigError, Environment, File};
 use serde::{Deserialize, Serialize};
-use serde::de::DeserializeOwned;
-
-use crate::configs::normalize_path;
+use toml::map::Map;
+use toml::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Server {
@@ -71,23 +69,31 @@ pub struct Settings {
 }
 
 impl Settings {
-    pub fn new() -> Result<Self, ConfigError> {
+    pub fn new() -> Result<Self, Box<dyn error::Error>> {
         let run_mode = env::var("RUN_MODE").unwrap_or("development".into());
 
-        let mut settings: Settings = Config::builder()
-            .add_source(File::with_name("configs/default"))
-            .add_source(File::with_name(&format!("configs/{run_mode}")).required(false))
-            .add_source(Environment::default().separator("_"))
-            .build()?
-            .try_deserialize()?;
+        // TODO: Need to be replaced until `CARGO_RUSTC_CURRENT_DIR` is stable
+        let mut settings: Settings = toml::from_str(
+            include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../", "configs/default.toml"))
+        )?;
+
+        let settings_path = Self::normalize_path(&format!("configs/{run_mode}.toml"))?;
+        if settings_path.exists() {
+            let file_buffer = String::from_utf8(fs::read(settings_path)?)?;
+            let override_settings = Value::from_str(&file_buffer)?;
+            let merged_settings = Self::merge(
+                Value::try_from(settings.to_owned())?,
+                override_settings,
+                "$"
+            )?;
+            settings = Value::try_into(merged_settings)?;
+        }
 
         if let Some(auth) = &settings.gateway.auth {
-            let cert_path = normalize_path(&auth.cert_path)
-                .map_err(|e| ConfigError::Message(e.to_string()))?
+            let cert_path = Self::normalize_path(&auth.cert_path)?
                 .to_string_lossy()
                 .to_string();
-            let key_path = normalize_path(&auth.key_path)
-                .map_err(|e| ConfigError::Message(e.to_string()))?
+            let key_path = Self::normalize_path(&auth.key_path)?
                 .to_string_lossy()
                 .to_string();
 
@@ -96,8 +102,7 @@ impl Settings {
 
         if let Some(migrate) = &settings.database.migration_path {
             if Path::new(migrate).is_dir() {
-                let migrate_path = normalize_path(&migrate)
-                    .map_err(|e| ConfigError::Message(e.to_string()))?
+                let migrate_path = Self::normalize_path(&migrate)?
                     .to_string_lossy()
                     .to_string();
 
@@ -110,27 +115,58 @@ impl Settings {
         Ok(settings)
     }
 
-    pub fn merge<L, R, T>(left: L, right: R) -> Result<T, Box<dyn Error>>
-        where
-            L: Serialize,
-            R: Serialize,
-            T: Serialize + DeserializeOwned,
-    {
-        let mut left_map = serde_json::to_value(&left)?
-            .as_object()
-            .map(|map| map.to_owned())
-            .ok_or("Failed to serialize left value which is not an object")?;
+    fn merge_table(
+        value: &mut Map<String, Value>,
+        other: Map<String, Value>,
+        path: &str,
+    ) -> Result<(), Box<dyn error::Error>> {
+        for (name, inner) in other {
+            if let Some(existing) = value.remove(&name) {
+                let inner_path = format!("{path}.{name}");
+                value.insert(name, Self::merge(existing, inner, &inner_path)?);
+            } else {
+                value.insert(name, inner);
+            }
+        }
 
-        let mut right_map = serde_json::to_value(&right)?
-            .as_object()
-            .map(|map| map.to_owned())
-            .ok_or("Failed to serialize right value which is not an object")?;
+        Ok(())
+    }
 
-        right_map.retain(|_, v| !v.is_null());
-        left_map.extend(right_map);
+    fn merge(value: Value, other: Value, path: &str) -> Result<Value, Box<dyn error::Error>> {
+        match (value, other) {
+            (Value::String(_), Value::String(inner)) => Ok(Value::String(inner)),
+            (Value::Integer(_), Value::Integer(inner)) => Ok(Value::Integer(inner)),
+            (Value::Float(_), Value::Float(inner)) => Ok(Value::Float(inner)),
+            (Value::Boolean(_), Value::Boolean(inner)) => Ok(Value::Boolean(inner)),
+            (Value::Datetime(_), Value::Datetime(inner)) => Ok(Value::Datetime(inner)),
+            (Value::Array(mut existing), Value::Array(inner)) => {
+                existing.extend(inner);
+                Ok(Value::Array(existing))
+            }
+            (Value::Table(mut existing), Value::Table(inner)) => {
+                Self::merge_table(&mut existing, inner, path)?;
+                Ok(Value::Table(existing))
+            }
+            (v, o) => Err(
+                format!(
+                    "Incompatible types at path {}, expected {} received {}.",
+                    path,
+                    v.type_str(),
+                    o.type_str()
+                ).into()
+            ),
+        }
+    }
 
-        let value = serde_json::to_value(&left_map)?;
+    fn normalize_path(path: &str) -> io::Result<PathBuf> {
+        let path_buf = PathBuf::from(path);
 
-        Ok(serde_json::from_value(value)?)
+        Ok(if path_buf.is_absolute() {
+            path_buf.clone()
+        } else {
+            env::current_dir()?
+                .as_path()
+                .join(&path_buf)
+        })
     }
 }

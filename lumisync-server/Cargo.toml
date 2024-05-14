@@ -15,7 +15,6 @@ argon2 = "0.5"
 axum = "0.7"
 axum-extra = { version = "0.9", features = ["typed-header"] }
 chrono = { version = "0.4", features = ["serde"] }
-config.workspace = true
 jsonwebtoken = "9"
 password-hash = { version = "0.5", features = ["getrandom"] }
 rumqttc = "0.24"
@@ -27,6 +26,7 @@ serialport = "4.3"
 sqlx = { version = "0.7.4", features = ["runtime-tokio", "sqlite", "chrono"] }
 tokio = { workspace = true, features = ["full"] }
 tokio-stream = "0.1"
+toml.workspace = true
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors"] }
 tracing.workspace = true

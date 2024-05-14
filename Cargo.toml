@@ -8,10 +8,10 @@ exclude = []
 resolver = "2"
 
 [workspace.dependencies]
-config = "0.14"
 serde = "1"
 serde_json = "1"
 tokio = "1"
+toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 
