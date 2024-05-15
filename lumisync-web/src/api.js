@@ -2,11 +2,19 @@ export const API = {
     "control": `${globalThis.__APP_API_URL__}/control`,
     "users": `${globalThis.__APP_API_URL__}/users`,
     "settings": `${globalThis.__APP_API_URL__}/settings`,
+    "regions": `${globalThis.__APP_API_URL__}/regions`,
     "windows": `${globalThis.__APP_API_URL__}/windows`,
     "sensors": `${globalThis.__APP_API_URL__}/sensors`,
 }
 
-globalThis.token = localStorage.getItem("auth_token");
+Object.defineProperty(globalThis, "token", {
+    get() {
+        return localStorage.getItem("auth_token");
+    },
+    set(value) {
+        localStorage.setItem("auth_token", value);
+    }
+});
 
 /**
  * Send serial port command [This is for debug]
@@ -106,6 +114,68 @@ export async function loginUser(data, callback) {
             console.log("Login successfully!");
         } else {
             console.error("Failed to login.");
+        }
+    } catch (error) {
+        console.error("Internal error:", error);
+    }
+}
+
+/**
+ * @typedef Region
+ * @property {number} id - The region id.
+ * @property {number} group_id - The group id who owns the region.
+ * @property {string} name - The name of this region.
+ * @property {number} light - The average light in region.
+ * @property {number} temperature - The average temperature in region.
+ */
+
+/**
+ * Get all regions control by current user, call `region_handle::get_regions`.
+ *
+ * @param {function([Region]): void} callback
+ * @return {Promise<void>}
+ */
+export async function getRegions(callback) {
+    try {
+        const response = await fetch(API.regions, {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${globalThis.token}`
+            },
+        });
+
+        if (response.ok) {
+            callback?.(await response.json());
+            console.log("Get regions successfully!");
+        } else {
+            console.error("Fail to get regions.");
+        }
+    } catch (error) {
+        console.error("Internal error:", error);
+    }
+}
+
+/**
+ * Create region control by current user, call `region_handle::create_region`.
+ *
+ * @param {{user_ids?: number[], name: string, light?: number, temperature?: number}} data
+ * @param {function(Region): void} callback
+ * @return {Promise<void>}
+ */
+export async function createRegion(data, callback) {
+    try {
+        const response = await fetch(API.regions, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${globalThis.token}`
+            },
+        });
+
+        if (response.ok) {
+            callback?.(await response.json());
+            console.log("Get regions successfully!");
+        } else {
+            console.error("Fail to get regions.");
         }
     } catch (error) {
         console.error("Internal error:", error);

@@ -1,4 +1,6 @@
 export { default as Dashboard } from "./dashboard.js";
+export { default as Region } from "./region.js";
+export { default as RegionList } from "./region-list.js";
 export { default as SensorGraph } from "./sensor-graph.js";
 export { default as Setting } from "./setting.js";
 export { default as User } from "./user.js";

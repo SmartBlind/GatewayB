@@ -37,9 +37,14 @@ pub struct User {
     pub role: String,
 }
 
+#[derive(Clone)]
 pub struct UserTable;
 
 impl Table for UserTable {
+    fn name(&self) -> &'static str {
+        "users"
+    }
+
     fn create(&self) -> String {
         String::from(
             r#"
@@ -57,5 +62,9 @@ impl Table for UserTable {
 
     fn dispose(&self) -> String {
         String::from("DROP TABLE IF EXISTS users;")
+    }
+
+    fn dependencies(&self) -> Vec<&'static str> {
+        vec!["groups"]
     }
 }

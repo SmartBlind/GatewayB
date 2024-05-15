@@ -1,89 +1,55 @@
 use std::path::Path;
-use std::sync::Arc;
 
 use sqlx::{Error, SqlitePool};
 use sqlx::migrate::Migrator;
 use sqlx::sqlite::SqlitePoolOptions;
 
+use crate::configs::schema::SchemaManager;
 use crate::configs::settings::Database;
-use crate::models::group::GroupTable;
-use crate::models::region::RegionTable;
-use crate::models::region_sensor::RegionSensorTable;
-use crate::models::region_setting::RegionSettingTable;
-use crate::models::sensor::SensorTable;
-use crate::models::sensor_data::SensorDataTable;
-use crate::models::setting::SettingTable;
-use crate::models::Table;
-use crate::models::user::UserTable;
-use crate::models::user_region::UserRegionTable;
-use crate::models::window::WindowTable;
-use crate::models::window_setting::WindowSettingTable;
 
 #[derive(Clone)]
 pub struct Storage {
     pool: SqlitePool,
-    database: Arc<Database>,
 }
 
 impl Storage {
-    pub async fn new(database: Database) -> Result<Self, Error> {
+    pub async fn new(database: Database, schema_manager: SchemaManager) -> Result<Self, Error> {
         let pool = SqlitePoolOptions::new()
             .min_connections(1) // in memory db might drop connection when 0
             .max_connections(10)
             .connect(&database.url)
             .await?;
 
-        Ok(Self {
-            pool,
-            database: Arc::new(database),
-        })
+        Self::create_schema(&pool, &schema_manager, &database).await?;
+
+        Ok(Self { pool })
     }
 
     pub fn get_pool(&self) -> &SqlitePool {
         &self.pool
     }
 
-    pub async fn create_tables(&self) -> Result<(), Error> {
-        if self.database.clean_start {
-            let mut statements: Vec<String> = Vec::new();
-            let tables: Vec<Box<dyn Table>> = vec![
-                Box::new(GroupTable),
-                Box::new(UserTable),
-                Box::new(RegionTable),
-                Box::new(SettingTable),
-                Box::new(WindowTable),
-                Box::new(SensorTable),
-                Box::new(SensorDataTable),
-                Box::new(WindowSettingTable),
-                Box::new(RegionSettingTable),
-                // Reference
-                Box::new(UserRegionTable),
-                Box::new(RegionSensorTable),
-            ];
-
-            for table in tables.iter().rev() {
-                statements.push(table.dispose());
-            }
-
-            for table in tables {
-                statements.push(table.create());
-            }
+    async fn create_schema(pool: &SqlitePool, schema: &SchemaManager, database: &Database) -> Result<(), Error> {
+        if database.clean_start {
+            let dispose_statements = schema.dispose_schema();
+            let create_statements = schema.create_schema();
+            let statements = [&dispose_statements[..], &create_statements[..]].concat();
 
             // Clean migration history
-            sqlx::query("DROP TABLE _sqlx_migrations")
-                .execute(&self.pool)
+            sqlx::query("DROP TABLE IF EXISTS _sqlx_migrations")
+                .execute(pool)
                 .await?;
 
             // Recreate all schema
             sqlx::query(&statements.join("\n"))
-                .execute(&self.pool)
+                .execute(pool)
                 .await?;
 
             tracing::warn!("perform a clean boot: clean and recreate schema");
         }
 
-        if let Some(migration_path) = self.database.migration_path.clone() {
-            let mut pool_connection = self.pool.acquire().await?;
+        if let Some(migration_path) = database.migration_path.clone() {
+            let mut pool_connection = pool.acquire().await?;
             let migrator = Migrator::new(Path::new(&migration_path)).await?;
             migrator.run(&mut pool_connection).await?;
 

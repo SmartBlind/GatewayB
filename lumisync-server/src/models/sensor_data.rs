@@ -11,9 +11,14 @@ pub struct SensorData {
     pub time: DateTime<Utc>,
 }
 
+#[derive(Clone)]
 pub struct SensorDataTable;
 
 impl Table for SensorDataTable {
+    fn name(&self) -> &'static str {
+        "sensor_data"
+    }
+
     fn create(&self) -> String {
         String::from(
             r#"
@@ -31,5 +36,9 @@ impl Table for SensorDataTable {
 
     fn dispose(&self) -> String {
         String::from("DROP TABLE IF EXISTS sensor_data;")
+    }
+
+    fn dependencies(&self) -> Vec<&'static str> {
+        vec!["sensors"]
     }
 }

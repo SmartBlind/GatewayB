@@ -14,9 +14,14 @@ pub struct Window {
     pub state: f32,
 }
 
+#[derive(Clone)]
 pub struct WindowTable;
 
 impl Table for WindowTable {
+    fn name(&self) -> &'static str {
+        "windows"
+    }
+
     fn create(&self) -> String {
         String::from(
             r#"
@@ -33,5 +38,9 @@ impl Table for WindowTable {
 
     fn dispose(&self) -> String {
         String::from("DROP TABLE IF EXISTS windows;")
+    }
+
+    fn dependencies(&self) -> Vec<&'static str> {
+        vec!["regions"]
     }
 }

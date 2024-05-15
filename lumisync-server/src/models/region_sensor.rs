@@ -9,9 +9,14 @@ pub struct RegionSensor {
     pub sensor_id: i32,
 }
 
+#[derive(Clone)]
 pub struct RegionSensorTable;
 
 impl Table for RegionSensorTable {
+    fn name(&self) -> &'static str {
+        "regions_sensors_link"
+    }
+
     fn create(&self) -> String {
         String::from(
             r#"
@@ -28,5 +33,9 @@ impl Table for RegionSensorTable {
 
     fn dispose(&self) -> String {
         String::from("DROP TABLE IF EXISTS regions_sensors_link;")
+    }
+
+    fn dependencies(&self) -> Vec<&'static str> {
+        vec!["regions", "sensors"]
     }
 }

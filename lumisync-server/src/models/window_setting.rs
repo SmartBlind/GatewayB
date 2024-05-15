@@ -9,9 +9,14 @@ pub struct WindowSetting {
     pub setting_id: i32,
 }
 
+#[derive(Clone)]
 pub struct WindowSettingTable;
 
 impl Table for WindowSettingTable {
+    fn name(&self) -> &'static str {
+        "windows_settings"
+    }
+
     fn create(&self) -> String {
         String::from(
             r#"
@@ -28,5 +33,9 @@ impl Table for WindowSettingTable {
 
     fn dispose(&self) -> String {
         String::from("DROP TABLE IF EXISTS windows_settings;")
+    }
+
+    fn dependencies(&self) -> Vec<&'static str> {
+        vec!["windows", "settings"]
     }
 }

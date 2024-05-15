@@ -1,5 +1,5 @@
-import Window from "./window.js";
 import { getWindows } from "../api.js";
+import Window from "./window.js";
 
 class WindowList extends HTMLElement {
     static observedAttributes = ["user-id"];

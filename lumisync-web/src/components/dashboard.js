@@ -5,26 +5,26 @@ class Dashboard extends HTMLElement {
     #panels = {};
     #active;
 
-    constructor(navLink) {
+    constructor(panels) {
         super();
         const shadowRoot = this.attachShadow({ mode: "open" });
         const sheet = new CSSStyleSheet();
 
         sheet.replace(styleSheet).then(style => shadowRoot.adoptedStyleSheets = [style]);
 
-        const navbar = shadowRoot.appendChild(document.createElement("ul"));
+        this.#elements.navbar = shadowRoot.appendChild(document.createElement("ul"));
 
-        const section = shadowRoot.appendChild(document.createElement("section"));
-        section.className = "section";
+        this.#elements.section = shadowRoot.appendChild(document.createElement("section"));
+        this.#elements.section.className = "section";
 
-        this.#panels = navLink;
-        this.#elements = {
-            tabs: this.createTabs(navbar),
-            panels: this.createPanels(section)
-        }
+        this.#panels = panels;
     }
 
     connectedCallback() {
+        this.#elements = {
+            tabs: this.createTabs(this.#elements.navbar),
+            panels: this.createPanels(this.#elements.section)
+        }
         self.addEventListener("navigate", event => {
             if (event.detail in this.#panels) {
                 if (this.#active) this.#active.style.display = "none";

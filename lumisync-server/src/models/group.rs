@@ -8,9 +8,14 @@ pub struct Group {
     pub name: String,
 }
 
+#[derive(Clone)]
 pub struct GroupTable;
 
 impl Table for GroupTable {
+    fn name(&self) -> &'static str {
+        "groups"
+    }
+
     fn create(&self) -> String {
         String::from(
             r#"
@@ -24,5 +29,9 @@ impl Table for GroupTable {
 
     fn dispose(&self) -> String {
         String::from("DROP TABLE IF EXISTS groups;")
+    }
+
+    fn dependencies(&self) -> Vec<&'static str> {
+        vec![]
     }
 }

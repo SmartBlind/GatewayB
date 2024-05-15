@@ -98,14 +98,14 @@ class User extends HTMLElement {
 
         switch (this.#state) {
             case STATE.login:
-                await loginUser(formData, ({ token }) => {
-                    localStorage.setItem("auth_token", token);
+                await loginUser(formData, data => {
+                    globalThis.token = data;
                     self.dispatchEvent(new Event("login"));
                 });
                 break;
             case STATE.register:
-                await registerUser(formData, ({ token }) => {
-                    localStorage.setItem("auth_token", token);
+                await registerUser(formData, data => {
+                    globalThis.token = data;
                     self.dispatchEvent(new Event("login"));
                 });
                 break;

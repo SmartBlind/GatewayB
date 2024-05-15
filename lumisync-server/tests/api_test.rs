@@ -28,7 +28,7 @@ async fn test_auth_middleware() {
                 format!("{:?}", token_data)
             }),
         )
-        .layer(middleware::from_fn_with_state(TokenState {
+        .route_layer(middleware::from_fn_with_state(TokenState {
             token_service: app.token_service.clone(),
             storage: app.storage.clone(),
         }, auth));
@@ -73,7 +73,7 @@ async fn test_auth_middleware_with_bad_token() {
                 format!("{:?}", token_data)
             }),
         )
-        .layer(middleware::from_fn_with_state(TokenState {
+        .route_layer(middleware::from_fn_with_state(TokenState {
             token_service: app.token_service.clone(),
             storage: app.storage.clone(),
         }, auth));
@@ -147,15 +147,15 @@ async fn test_user_authorize_router() {
 
     let user_router = Router::new()
         .route("/authorize", get(authorize_user))
+        .route_layer(middleware::from_fn_with_state(TokenState {
+            token_service: app.token_service.clone(),
+            storage: app.storage.clone(),
+        }, auth))
         .with_state(UserState {
             auth_service: app.auth_service.clone(),
             token_service: app.token_service.clone(),
             storage: app.storage.clone(),
-        })
-        .layer(middleware::from_fn_with_state(TokenState {
-            token_service: app.token_service.clone(),
-            storage: app.storage.clone(),
-        }, auth));
+        });
 
     let token = app.token_service.generate_token(user.to_owned()).unwrap();
 
@@ -243,13 +243,13 @@ async fn test_region_create_router() {
 
     let region_router = Router::new()
         .route("/region", post(create_region))
-        .with_state(RegionState {
-            storage: app.storage.clone(),
-        })
-        .layer(middleware::from_fn_with_state(TokenState {
+        .route_layer(middleware::from_fn_with_state(TokenState {
             token_service: app.token_service.clone(),
             storage: app.storage.clone(),
-        }, auth));
+        }, auth))
+        .with_state(RegionState {
+            storage: app.storage.clone(),
+        });
 
     let token = app.token_service.generate_token(user.to_owned()).unwrap();
 
@@ -290,13 +290,13 @@ async fn test_region_get_router() {
 
     let region_router = Router::new()
         .route("/region", get(get_regions))
-        .with_state(RegionState {
-            storage: app.storage.clone(),
-        })
-        .layer(middleware::from_fn_with_state(TokenState {
+        .route_layer(middleware::from_fn_with_state(TokenState {
             token_service: app.token_service.clone(),
             storage: app.storage.clone(),
-        }, auth));
+        }, auth))
+        .with_state(RegionState {
+            storage: app.storage.clone(),
+        });
 
     let token = app.token_service.generate_token(user.to_owned()).unwrap();
 

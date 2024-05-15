@@ -9,9 +9,14 @@ pub struct UserRegion {
     pub region_id: i32,
 }
 
+#[derive(Clone)]
 pub struct UserRegionTable;
 
 impl Table for UserRegionTable {
+    fn name(&self) -> &'static str {
+        "users_regions_link"
+    }
+
     fn create(&self) -> String {
         String::from(
             r#"
@@ -28,5 +33,9 @@ impl Table for UserRegionTable {
 
     fn dispose(&self) -> String {
         String::from("DROP TABLE IF EXISTS users_regions_link;")
+    }
+
+    fn dependencies(&self) -> Vec<&'static str> {
+        vec!["users", "regions"]
     }
 }

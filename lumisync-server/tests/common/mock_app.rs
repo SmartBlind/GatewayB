@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use lumisync_server::configs::schema::SchemaManager;
 use lumisync_server::configs::settings::{Auth, Database};
 use lumisync_server::configs::storage::Storage;
 use lumisync_server::models::group::Group;
@@ -22,8 +23,7 @@ impl MockApp {
             migration_path: None,
             clean_start: true,
             url: String::from("sqlite::memory:"),
-        }).await.unwrap());
-        storage.create_tables().await.unwrap();
+        }, SchemaManager::default()).await.unwrap());
 
         let auth_service = Arc::new(AuthService::new());
         let token_service = Arc::new(TokenService::new(Auth {
