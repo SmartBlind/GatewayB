@@ -44,6 +44,9 @@ void async function main() {
     }
 
     if (mode === "development") {
+        // Clean development cache.
+        window.addEventListener("beforeunload", () => localStorage.removeItem("auth_token"));
+
         loginUser({ email: "test@test.com", password: "test" }, data => {
             console.log("Gain sample account token.");
             localStorage.setItem("auth_token", data);

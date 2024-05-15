@@ -43,7 +43,7 @@ sqlx database create --database-url <url>
 sqlx migrate add <name>
 ```
 
-2. Check the new migration script under `migrations/<timestamp>-<name>.sql`. Add
+2. Check the new migration script under `migrations/<timestamp>_<name>.sql`. Add
    custom database schema changes to this file.
 
 ```sql

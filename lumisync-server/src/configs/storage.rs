@@ -69,14 +69,25 @@ impl Storage {
                 statements.push(table.create());
             }
 
+            // Clean migration history
+            sqlx::query("DROP TABLE _sqlx_migrations")
+                .execute(&self.pool)
+                .await?;
+
+            // Recreate all schema
             sqlx::query(&statements.join("\n"))
                 .execute(&self.pool)
                 .await?;
+
+            tracing::warn!("perform a clean boot: clean and recreate schema");
         }
 
-        if let Some(migrate) = self.database.migration_path.clone() {
-            let migrate = Migrator::new(Path::new(&migrate)).await?;
-            migrate.run(&self.pool).await?;
+        if let Some(migration_path) = self.database.migration_path.clone() {
+            let mut pool_connection = self.pool.acquire().await?;
+            let migrator = Migrator::new(Path::new(&migration_path)).await?;
+            migrator.run(&mut pool_connection).await?;
+
+            tracing::info!("database migration success");
         }
 
         Ok(())
