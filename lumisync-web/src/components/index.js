@@ -1,4 +1,5 @@
 export { default as Dashboard } from "./dashboard.js";
+export { default as GanttGraph } from "./gantt-graph.js";
 export { default as Region } from "./region.js";
 export { default as RegionList } from "./region-list.js";
 export { default as SensorGraph } from "./sensor-graph.js";
