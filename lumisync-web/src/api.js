@@ -1,3 +1,5 @@
+import { fetchEventSource } from "@microsoft/fetch-event-source";
+
 export const API = {
     "control": `${globalThis.__APP_API_URL__}/control`,
     "users": `${globalThis.__APP_API_URL__}/users`,
@@ -203,9 +205,28 @@ export async function saveSettings(data, callback) {
     }
 }
 
-export async function getWindows(userId, callback) {
+/**
+ * @typedef Window
+ * @property {number} id - The window id.
+ * @property {number} region_id - The region id of this window.
+ * @property {string} name - The name of this window.
+ * @property {number} state - How much light pass through this window.
+ */
+
+/**
+ * Get all windows control by current user, call `window_handle::get_windows`
+ *
+ * @param {function([Window]): void} callback
+ * @return {Promise<void>}
+ */
+export async function getWindows(callback) {
     try {
-        const response = await fetch(`${API.windows}/user/${userId}`);
+        const response = await fetch(API.windows, {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${globalThis.token}`
+            },
+        });
 
         if (response.ok) {
             callback?.(await response.json());
@@ -218,9 +239,27 @@ export async function getWindows(userId, callback) {
     }
 }
 
-export async function getSensors(groupId, callback) {
+/**
+ * @typedef Sensor
+ * @property {number} id - The window id.
+ * @property {number} region_id - The region id of this sensor.
+ * @property {string} name - The name of this sensor.
+ */
+
+/**
+ * Get all sensors control by current user, call `sensor_handle::get_sensors`
+ *
+ * @param {function([Sensor]): void} callback
+ * @return {Promise<void>}
+ */
+export async function getSensors(callback) {
     try {
-        const response = await fetch(`${API.sensors}/${groupId}`);
+        const response = await fetch(API.sensors, {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${globalThis.token}`
+            },
+        });
 
         if (response.ok) {
             callback?.(await response.json());
@@ -233,9 +272,57 @@ export async function getSensors(groupId, callback) {
     }
 }
 
+/**
+ * Get all sensors control by current user under target region, call
+ * `sensor_handle::get_sensors_by_region`
+ *
+ * @param {number} regionId
+ * @param {function([Sensor]): void} callback
+ * @return {Promise<void>}
+ */
+export async function getSensorsByRegion(regionId, callback) {
+    try {
+        const response = await fetch(`${API.sensors}/${regionId}`, {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${globalThis.token}`
+            },
+        });
+
+        if (response.ok) {
+            callback?.(await response.json());
+            console.log("Get sensors successfully!");
+        } else {
+            console.error("Fail to get sensors.");
+        }
+    } catch (error) {
+        console.error("Internal error:", error);
+    }
+}
+
+/**
+ * @typedef SensorData
+ * @property {number} id - The sensor record id.
+ * @property {number} light - The light intensity.
+ * @property {number} temperature - The temperature.
+ * @property {Date} time - The record time.
+ */
+
+/**
+ * Get freeze sensor data record, call `sensor_handle::get_sensor_data_in_range`
+ *
+ * @param {number} sensorId
+ * @param {function([SensorData]): void} callback
+ * @return {Promise<void>}
+ */
 export async function getSensorData(sensorId, callback) {
     try {
-        const response = await fetch(`${API.sensors}/data/${sensorId}`);
+        const response = await fetch(`${API.sensors}/data/${sensorId}`, {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${globalThis.token}`
+            },
+        });
 
         if (response.ok) {
             callback?.(await response.json());
@@ -248,10 +335,25 @@ export async function getSensorData(sensorId, callback) {
     }
 }
 
-export function streamSensorData(sensorId, callback) {
-    const eventSource = new EventSource(`${API.sensors}/data/sse/${sensorId}`);
-
-    eventSource.onmessage = (event) => callback?.(JSON.parse(event.data));
-
-    return eventSource;
+/**
+ * Get live sensor data record by stream, call `sensor_handle::get_sensor_data`
+ *
+ * @param {number} sensorId
+ * @param {function([SensorData]): void} callback
+ * @return {Promise<void>}
+ */
+export async function streamSensorData(sensorId, callback) {
+    await fetchEventSource(`${API.sensors}/data/sse/${sensorId}`, {
+        headers: {
+            "Authorization": `Bearer ${globalThis.token}`
+        },
+        onmessage(event) {
+            callback?.(JSON.parse(event.data));
+        },
+        onerror(error) {
+            if (!(error instanceof SyntaxError)) {
+                console.error("Internal error:", error);
+            }
+        }
+    })
 }

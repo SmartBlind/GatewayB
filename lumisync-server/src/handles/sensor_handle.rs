@@ -74,7 +74,7 @@ pub async fn get_sensors(
                     SELECT sensors.* FROM groups
                         JOIN regions ON groups.id = regions.group_id
                         JOIN sensors ON regions.id = sensors.region_id
-                        WHERE groups.id = ?;
+                        WHERE groups.id = $1;
                 "#
             )
                 .bind(&token_data.group_id)
@@ -85,13 +85,13 @@ pub async fn get_sensors(
             Ok(Json(sensors))
         },
         Role::User => {
-            let sensors = sqlx::query_as::<_, Sensor>(
+            let sensors: Vec<Sensor> = sqlx::query_as(
                 r#"
                     SELECT s.* FROM users u
                         JOIN users_regions_link ur ON u.id = ur.user_id
                         JOIN regions r ON ur.region_id = r.id
                         JOIN sensors s ON r.id = s.region_id
-                        WHERE u.id = ?;
+                        WHERE u.id = $1;
                 "#
             )
                 .bind(&token_data.sub)
@@ -104,6 +104,42 @@ pub async fn get_sensors(
     }
 }
 
+pub async fn get_sensors_by_region(
+    Extension(token_data): Extension<TokenClaims>,
+    Path(region_id): Path<i32>,
+    State(state): State<SensorState>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let row: (i64, ) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*) FROM users_regions_link ur
+            WHERE ur.user_id = $1 AND ur.region_id = $2;
+        "#
+    )
+        .bind(&token_data.sub)
+        .bind(&region_id)
+        .fetch_one(state.storage.get_pool())
+        .await
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+
+    let sensors: Vec<Sensor> = if row.0 > 0 {
+        sqlx::query_as(
+            r#"
+            SELECT s.* FROM sensors s
+                JOIN regions r ON s.region_id = r.id
+                WHERE r.id = $1;
+            "#
+        )
+            .bind(&region_id)
+            .fetch_all(state.storage.get_pool())
+            .await
+            .map_err(|_| StatusCode::NOT_FOUND)?
+    } else {
+        Vec::new()
+    };
+
+    Ok(Json(sensors))
+}
+
 pub async fn get_sensor_data(
     Path(sensor_id): Path<String>,
     Query(range): Query<TimeRangeQuery>,
@@ -114,11 +150,11 @@ pub async fn get_sensor_data(
 
     let stream = wrappers::IntervalStream::new(interval(time::Duration::from_secs(3)))
         .then(move |_| {
-            let id = sensor_id.to_owned();
-            let database = state.storage.to_owned();
-            let last_timestamp = last_timestamp.to_owned();
+            let id_owned = sensor_id.to_owned();
+            let storage_owned = state.storage.to_owned();
+            let last_timestamp_owned = last_timestamp.to_owned();
             async move {
-                let last_time = *last_timestamp.lock().await;
+                let last_time = *last_timestamp_owned.lock().await;
                 let result = sqlx::query_as::<_, SensorData>(
                     r#"
                     SELECT * FROM sensor_data
@@ -126,15 +162,15 @@ pub async fn get_sensor_data(
                         ORDER BY time;
                     "#
                 )
-                    .bind(&id)
+                    .bind(&id_owned)
                     .bind(last_time)
-                    .fetch_all(database.get_pool())
+                    .fetch_all(storage_owned.get_pool())
                     .await;
 
                 match result {
                     Ok(key_point) if !key_point.is_empty() => {
                         let latest_time = key_point.last().unwrap().time;
-                        *last_timestamp.lock().await = latest_time;
+                        *last_timestamp_owned.lock().await = latest_time;
                         let event_data = serde_json::to_string(&key_point).unwrap();
                         Ok(Event::default().data(event_data))
                     },

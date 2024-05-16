@@ -1,0 +1,19 @@
+.container {
+  padding-left: 25px;
+
+  & > .summary {
+    padding: 20px;
+    align-items: center;
+    cursor: pointer;
+
+    .name {
+      color: gray;
+      padding: 0 0.5rem;
+
+      &::before {
+        content: "Name: ";
+        color: black;
+      }
+    }
+  }
+}

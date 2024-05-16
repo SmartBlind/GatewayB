@@ -66,10 +66,10 @@ impl MockBroker {
     }
 
     pub fn start(&self) {
-        let broker = Arc::clone(&self.broker);
+        let broker_owned = self.broker.to_owned();
 
         tokio::spawn(async move {
-            broker.lock().await.start().unwrap()
+            broker_owned.lock().await.start().unwrap()
         });
     }
 

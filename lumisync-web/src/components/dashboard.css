@@ -13,7 +13,28 @@ li {
   margin: 0 0.3rem;
 }
 
-.tab {
+.button-group {
+  display: flex;
+
+  & > .marker {
+    min-width: 2.25rem;
+    padding: 0.5rem;
+    border: 1px solid gray;
+    border-left: none;
+  }
+
+  & > button:first-child {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  & > button:last-child {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+  }
+}
+
+.tab, .button-group button {
   padding: 0.5rem 2.5rem;
   cursor: pointer;
   transition: background-color 0.3s, box-shadow 0.3s;

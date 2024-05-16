@@ -25,7 +25,7 @@ impl CommandHandler {
         broker.start();
 
         tokio::spawn({
-            let cmd_tx_clone = self.cmd_tx.clone();
+            let cmd_tx_owned = self.cmd_tx.to_owned();
             async move {
 
                 let mut index_map: HashMap<String, u32> = HashMap::new();
@@ -41,7 +41,7 @@ impl CommandHandler {
                                 tracing::debug!("Receive: {:?}", data);
 
                                 let sensor_index = index_map.entry(data.id.clone()).or_insert(0);
-                                cmd_tx_clone.send((data, sensor_index.clone())).await.unwrap();
+                                cmd_tx_owned.send((data, sensor_index.clone())).await.unwrap();
                                 *sensor_index += 1;
                             }
                         },

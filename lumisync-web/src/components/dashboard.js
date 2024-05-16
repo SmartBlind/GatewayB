@@ -2,72 +2,111 @@ import styleSheet from "./dashboard.css?raw";
 
 class Dashboard extends HTMLElement {
     #elements = {};
-    #panels = {};
-    #active;
+    #model = {};
 
-    constructor(panels) {
+    #activePanels = new Set();
+    #activeTarget = null; // The initial focus
+    #multiSelect = false;
+
+    constructor(model) {
         super();
         const shadowRoot = this.attachShadow({ mode: "open" });
         const sheet = new CSSStyleSheet();
 
         sheet.replace(styleSheet).then(style => shadowRoot.adoptedStyleSheets = [style]);
 
-        this.#elements.navbar = shadowRoot.appendChild(document.createElement("ul"));
+        const navbar = shadowRoot.appendChild(document.createElement("ul"));
+        const section = shadowRoot.appendChild(document.createElement("section"));
+        section.className = "section";
 
-        this.#elements.section = shadowRoot.appendChild(document.createElement("section"));
-        this.#elements.section.className = "section";
-
-        this.#panels = panels;
+        this.#elements = { navbar, section }
+        this.#model = model;
     }
 
     connectedCallback() {
-        this.#elements = {
-            tabs: this.createTabs(this.#elements.navbar),
-            panels: this.createPanels(this.#elements.section)
-        }
-        self.addEventListener("navigate", event => {
-            if (event.detail in this.#panels) {
-                if (this.#active) this.#active.style.display = "none";
-                this.#active = this.#panels[event.detail].element;
-                this.#active.style.display = "block";
-            }
-        });
+        this.createTabs(this.#elements.navbar);
+        this.createPanels(this.#elements.section);
     }
 
     createTabs(container) {
-        const tabs = {};
-
-        for (const [key, value] of Object.entries(this.#panels)) {
+        for (const [key, value] of Object.entries(this.#model)) {
             const element = container.appendChild(document.createElement("li"));
-            const button = element.appendChild(document.createElement("button"));
-            button.addEventListener("click", () => self.dispatchEvent(value.event));
-            button.textContent = key;
-            button.className = "tab";
+            if (value.groups?.size > 0) {
+                const buttonGroup = element.appendChild(document.createElement("div"));
+                buttonGroup.className = "button-group";
 
-            tabs[key] = element;
+                const button = buttonGroup.appendChild(document.createElement("button"));
+                button.textContent = key;
+                button.addEventListener("click", () => this.updatePanels(key));
+
+                const marker = buttonGroup.appendChild(document.createElement("button"));
+                marker.className = "marker"
+                marker.textContent = "off";
+                marker.addEventListener("click", () => this.updateTabs(key, value.groups));
+            } else {
+                const button = element.appendChild(document.createElement("button"));
+                button.addEventListener("click", () => this.updatePanels(key));
+                button.textContent = key;
+                button.className = "tab";
+            }
         }
+    }
 
-        return tabs;
+    updateTabs(key, groups) {
+        this.#multiSelect = !this.#multiSelect;
+        this.#elements.navbar.querySelectorAll(".marker").forEach(element => {
+            element.textContent = this.#multiSelect ? "On" : "Off";
+        });
+        if (this.#multiSelect) {
+            this.#activeTarget = { key, groups };
+            this.updatePanel(key);
+        } else {
+            this.#activeTarget = null;
+            this.updatePanel(key);
+        }
     }
 
     createPanels(container) {
-        const panels = {};
-
         container.append(
-            ...Object.entries(this.#panels).map(([key, { element }], index) => {
+            ...Object.entries(this.#model).map(([key, { element }], index) => {
                 if (index === 0) {
-                    this.#active = element;
+                    this.#activePanels.add(key);
                 } else {
                     element.style.display = "none";
                 }
 
-                panels[key] = element;
-
                 return element;
             })
         );
+    }
 
-        return panels;
+    updatePanels(key) {
+        if (this.#multiSelect) {
+            if (this.#activeTarget?.groups.has(key)) {
+                this.togglePanel(key);
+            }
+        } else {
+            this.updatePanel(key);
+        }
+    }
+
+    togglePanel(key) {
+        if (this.#activePanels.has(key)) {
+            this.#activePanels.delete(key);
+            this.#model[key].element.style.display = "none";
+        } else {
+            this.#activePanels.add(key);
+            this.#model[key].element.style.display = "block";
+        }
+    }
+
+    updatePanel(key) {
+        this.#activePanels.forEach(panelKey => {
+            this.#model[panelKey].element.style.display = "none";
+        });
+        this.#activePanels.clear();
+        this.#activePanels.add(key);
+        this.#model[key].element.style.display = "block";
     }
 }
 

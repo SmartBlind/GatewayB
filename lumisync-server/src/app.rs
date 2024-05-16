@@ -9,7 +9,7 @@ use crate::configs::settings::Settings;
 use crate::configs::storage::Storage;
 use crate::handles::control_handle::{ControlState, execute_command};
 use crate::handles::region_handle::{create_region, get_regions, RegionState};
-use crate::handles::sensor_handle::{get_sensor_data, get_sensor_data_in_range, get_sensors, SensorState};
+use crate::handles::sensor_handle::{get_sensor_data, get_sensor_data_in_range, get_sensors, get_sensors_by_region, SensorState};
 use crate::handles::setting_handle::{save_setting, SettingState};
 use crate::handles::user_handle::{authenticate_user, authorize_user, create_user, UserState};
 use crate::handles::window_handle::{create_window, delete_window, get_window_owners, get_windows, update_window, WindowState};
@@ -69,6 +69,7 @@ pub async fn create_app(settings: &Arc<Settings>) -> Router {
 
     let sensors = Router::new()
         .route("/", get(get_sensors))
+        .route("/:region_id", get(get_sensors_by_region))
         .route("/data/:sensor_id", get(get_sensor_data_in_range))
         .route("/data/sse/:sensor_id", get(get_sensor_data))
         .route_layer(middleware::from_fn_with_state(token_state.clone(), auth))

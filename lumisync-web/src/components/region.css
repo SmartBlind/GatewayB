@@ -1,0 +1,44 @@
+.container {
+  border: 1px solid #eee;
+  border-radius: 5px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+
+  & > .summary {
+    display: flex;
+    padding: 20px;
+    flex-direction: row;
+    align-items: center;
+    cursor: pointer;
+
+    .name {
+      flex: auto;
+      color: gray;
+      padding: 0 0.5rem;
+
+      &::before {
+        content: "Name: ";
+        color: black;
+      }
+    }
+
+    .light {
+      color: darkgoldenrod;
+      padding: 0 0.5rem;
+
+      &::before {
+        content: "Light: ";
+        color: black;
+      }
+    }
+
+    .temperature {
+      color: darkcyan;
+      padding: 0 0.5rem;
+
+      &::before {
+        content: "Temperature: ";
+        color: black;
+      }
+    }
+  }
+}

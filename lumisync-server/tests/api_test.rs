@@ -7,7 +7,7 @@ use axum::routing::{delete, get, post, put};
 use tower::ServiceExt;
 
 use lumisync_server::handles::region_handle::{create_region, get_regions, RegionBody, RegionState};
-use lumisync_server::handles::sensor_handle::{create_sensor, get_sensors, SensorBody, SensorState};
+use lumisync_server::handles::sensor_handle::{create_sensor, get_sensors, get_sensors_by_region, SensorBody, SensorState};
 use lumisync_server::handles::user_handle::{authenticate_user, authorize_user, create_user, UserLoginBody, UserRegisterBody, UserState};
 use lumisync_server::handles::window_handle::{create_window, delete_window, get_windows, update_window, WindowBody, WindowState};
 use lumisync_server::middlewares::auth_middleware::{auth, TokenState};
@@ -329,14 +329,14 @@ async fn test_window_create_router() {
 
     let window_router = Router::new()
         .route("/window", post(create_window))
+        .route_layer(middleware::from_fn_with_state(TokenState {
+            token_service: app.token_service.clone(),
+            storage: app.storage.clone(),
+        }, auth))
         .with_state(WindowState {
             actuator_service: None,
             storage: app.storage.clone(),
-        })
-        .layer(middleware::from_fn_with_state(TokenState {
-            token_service: app.token_service.clone(),
-            storage: app.storage.clone(),
-        }, auth));
+        });
 
     let token = app.token_service.generate_token(user.to_owned()).unwrap();
 
@@ -377,14 +377,14 @@ async fn test_window_get_router() {
 
     let window_router = Router::new()
         .route("/window", get(get_windows))
+        .route_layer(middleware::from_fn_with_state(TokenState {
+            token_service: app.token_service.clone(),
+            storage: app.storage.clone(),
+        }, auth))
         .with_state(WindowState {
             actuator_service: None,
             storage: app.storage.clone(),
-        })
-        .layer(middleware::from_fn_with_state(TokenState {
-            token_service: app.token_service.clone(),
-            storage: app.storage.clone(),
-        }, auth));
+        });
 
     let token = app.token_service.generate_token(user.to_owned()).unwrap();
 
@@ -418,14 +418,14 @@ async fn test_window_update_router() {
 
     let window_router = Router::new()
         .route("/window/:window_id", put(update_window))
+        .route_layer(middleware::from_fn_with_state(TokenState {
+            token_service: app.token_service.clone(),
+            storage: app.storage.clone(),
+        }, auth))
         .with_state(WindowState {
             actuator_service: None,
             storage: app.storage.clone(),
-        })
-        .layer(middleware::from_fn_with_state(TokenState {
-            token_service: app.token_service.clone(),
-            storage: app.storage.clone(),
-        }, auth));
+        });
 
     let token = app.token_service.generate_token(user.to_owned()).unwrap();
 
@@ -466,14 +466,14 @@ async fn test_window_delete_router() {
 
     let window_router = Router::new()
         .route("/window/:window_id", delete(delete_window))
+        .route_layer(middleware::from_fn_with_state(TokenState {
+            token_service: app.token_service.clone(),
+            storage: app.storage.clone(),
+        }, auth))
         .with_state(WindowState {
             actuator_service: None,
             storage: app.storage.clone(),
-        })
-        .layer(middleware::from_fn_with_state(TokenState {
-            token_service: app.token_service.clone(),
-            storage: app.storage.clone(),
-        }, auth));
+        });
 
     let token = app.token_service.generate_token(user.to_owned()).unwrap();
 
@@ -502,13 +502,13 @@ async fn test_sensor_create_router() {
 
     let sensor_router = Router::new()
         .route("/sensor", post(create_sensor))
-        .with_state(SensorState {
-            storage: app.storage.clone(),
-        })
-        .layer(middleware::from_fn_with_state(TokenState {
+        .route_layer(middleware::from_fn_with_state(TokenState {
             token_service: app.token_service.clone(),
             storage: app.storage.clone(),
-        }, auth));
+        }, auth))
+        .with_state(SensorState {
+            storage: app.storage.clone(),
+        });
 
     let token = app.token_service.generate_token(user.to_owned()).unwrap();
 
@@ -549,13 +549,13 @@ async fn test_sensor_get_router() {
 
     let sensor_router = Router::new()
         .route("/sensor", get(get_sensors))
-        .with_state(SensorState {
-            storage: app.storage.clone(),
-        })
-        .layer(middleware::from_fn_with_state(TokenState {
+        .route_layer(middleware::from_fn_with_state(TokenState {
             token_service: app.token_service.clone(),
             storage: app.storage.clone(),
-        }, auth));
+        }, auth))
+        .with_state(SensorState {
+            storage: app.storage.clone(),
+        });
 
     let token = app.token_service.generate_token(user.to_owned()).unwrap();
 
@@ -573,4 +573,50 @@ async fn test_sensor_get_router() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
+
+    let res_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let res_body_str = String::from_utf8(res_body.to_vec()).unwrap();
+
+    assert!(res_body_str.contains("SENSOR-MOCK"));
+}
+
+#[tokio::test]
+async fn test_sensor_get_by_region() {
+    let app = MockApp::new().await;
+    app.create_test_group().await;
+    let user = app.create_test_user().await;
+    let region = app.create_test_region().await;
+    app.create_test_window().await;
+    app.create_test_sensor().await;
+
+    let sensor_router = Router::new()
+        .route("/sensor/:region_id", get(get_sensors_by_region))
+        .route_layer(middleware::from_fn_with_state(TokenState {
+            token_service: app.token_service.clone(),
+            storage: app.storage.clone(),
+        }, auth))
+        .with_state(SensorState {
+            storage: app.storage.clone(),
+        });
+
+    let token = app.token_service.generate_token(user.to_owned()).unwrap();
+
+    let response = sensor_router
+        .oneshot(
+            Request::builder()
+                .method(http::Method::GET)
+                .uri(format!("/sensor/{}", region.id))
+                .header("Authorization", format!("Bearer {}", token.token))
+                .body(Body::empty())
+                .unwrap()
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let res_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let res_body_str = String::from_utf8(res_body.to_vec()).unwrap();
+
+    assert!(res_body_str.contains("SENSOR-MOCK"));
 }
