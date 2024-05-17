@@ -1,17 +1,28 @@
 use std::sync::Arc;
 
+use axum::{Extension, middleware, Router};
+use axum::routing::{get, post, put};
+
 use lumisync_server::configs::schema::SchemaManager;
 use lumisync_server::configs::settings::{Auth, Database};
 use lumisync_server::configs::storage::Storage;
+use lumisync_server::handles::region_handle::{create_region, get_regions, RegionState};
+use lumisync_server::handles::sensor_handle::{create_sensor, get_sensors, get_sensors_by_region, SensorState};
+use lumisync_server::handles::user_handle::{authenticate_user, authorize_user, create_user, UserState};
+use lumisync_server::handles::window_handle::{create_window, delete_window, get_windows, update_window, WindowState};
+use lumisync_server::middlewares::auth_middleware::{auth, TokenState};
 use lumisync_server::models::group::Group;
 use lumisync_server::models::region::Region;
 use lumisync_server::models::sensor::Sensor;
 use lumisync_server::models::user::User;
 use lumisync_server::models::window::Window;
 use lumisync_server::services::auth_service::AuthService;
-use lumisync_server::services::token_service::TokenService;
+use lumisync_server::services::token_service::{TokenClaims, TokenService};
 
 pub struct MockApp {
+    pub router: Router,
+    pub admin: User,
+    pub token: String,
     pub storage: Arc<Storage>,
     pub auth_service: Arc<AuthService>,
     pub token_service: Arc<TokenService>,
@@ -31,11 +42,120 @@ impl MockApp {
             expiration: 1000,
         }));
 
+        let user = User {
+            id: 1,
+            group_id: 1,
+            email: String::from("test@test.com"),
+            password: String::from("test"),
+            role: String::from("admin"),
+        };
+
+        let token_data = token_service.generate_token(user.to_owned()).unwrap();
+
         Self {
+            router: Default::default(),
+            admin: user,
+            token: token_data.token,
             storage,
             auth_service,
             token_service
         }
+    }
+
+    pub async fn with_auth_middleware(mut self) -> Self {
+        self.router = self.router
+            .merge(
+                Router::new()
+                    .route("/check", get(
+                        |Extension(token_data): Extension<TokenClaims>| async move {
+                            format!("{:?}", token_data)
+                        }),
+                    )
+                    .route_layer(middleware::from_fn_with_state(TokenState {
+                        token_service: self.token_service.clone(),
+                        storage: self.storage.clone(),
+                    }, auth))
+            );
+
+        self
+    }
+
+    pub async fn with_user_handle(mut self) -> Self {
+        self.router = self.router
+            .merge(
+                Router::new()
+                    .route("/register", post(create_user))
+                    .route("/authenticate", post(authenticate_user))
+                    .route(
+                        "/authorize",
+                        get(authorize_user)
+                            .route_layer(middleware::from_fn_with_state(TokenState {
+                                token_service: self.token_service.clone(),
+                                storage: self.storage.clone(),
+                            }, auth))
+                    )
+                    .with_state(UserState {
+                        auth_service: self.auth_service.clone(),
+                        token_service: self.token_service.clone(),
+                        storage: self.storage.clone(),
+                    })
+            );
+
+        self
+    }
+
+    pub async fn with_region_handle(mut self) -> Self {
+        self.router = self.router
+            .merge(
+                Router::new()
+                    .route("/region", get(get_regions).post(create_region))
+                    .route_layer(middleware::from_fn_with_state(TokenState {
+                        token_service: self.token_service.clone(),
+                        storage: self.storage.clone(),
+                    }, auth))
+                    .with_state(RegionState {
+                        storage: self.storage.clone(),
+                    })
+            );
+
+        self
+    }
+
+    pub async fn with_window_handle(mut self) -> Self {
+        self.router = self.router
+            .merge(
+                Router::new()
+                    .route("/window", get(get_windows).post(create_window))
+                    .route("/window/:window_id", put(update_window).delete(delete_window))
+                    .route_layer(middleware::from_fn_with_state(TokenState {
+                        token_service: self.token_service.clone(),
+                        storage: self.storage.clone(),
+                    }, auth))
+                    .with_state(WindowState {
+                        actuator_service: None,
+                        storage: self.storage.clone(),
+                    })
+            );
+
+        self
+    }
+
+    pub async fn with_sensor_handle(mut self) -> Self {
+        self.router = self.router
+            .merge(
+                Router::new()
+                    .route("/sensor", get(get_sensors).post(create_sensor))
+                    .route("/sensor/:region_id", get(get_sensors_by_region))
+                    .route_layer(middleware::from_fn_with_state(TokenState {
+                        token_service: self.token_service.clone(),
+                        storage: self.storage.clone(),
+                    }, auth))
+                    .with_state(SensorState {
+                        storage: self.storage.clone(),
+                    })
+            );
+
+        self
     }
 
     pub async fn create_test_group(&self) -> Group {

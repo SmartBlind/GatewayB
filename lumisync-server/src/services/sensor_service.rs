@@ -127,7 +127,7 @@ impl SensorService {
                 sqlx::query(
                     r#"
                     INSERT INTO sensor_data (sensor_id, light, temperature, time)
-                        VALUES ((SELECT id from sensors WHERE name = ?), ?, ?, DATETIME(?))
+                        VALUES ((SELECT id from sensors WHERE name = $1), $2, $3, DATETIME($4))
                     "#
                 )
                     .bind(&data.id)

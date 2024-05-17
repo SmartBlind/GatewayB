@@ -1,53 +1,29 @@
 use std::time::Duration;
 
-use axum::{Extension, http, middleware, Router};
 use axum::body::{Body, to_bytes};
+use axum::http;
 use axum::http::{Request, StatusCode};
-use axum::routing::{delete, get, post, put};
 use tower::ServiceExt;
 
-use lumisync_server::handles::region_handle::{create_region, get_regions, RegionBody, RegionState};
-use lumisync_server::handles::sensor_handle::{create_sensor, get_sensors, get_sensors_by_region, SensorBody, SensorState};
-use lumisync_server::handles::user_handle::{authenticate_user, authorize_user, create_user, UserLoginBody, UserRegisterBody, UserState};
-use lumisync_server::handles::window_handle::{create_window, delete_window, get_windows, update_window, WindowBody, WindowState};
-use lumisync_server::middlewares::auth_middleware::{auth, TokenState};
-use lumisync_server::models::user::User;
-use lumisync_server::services::token_service::TokenClaims;
+use lumisync_server::handles::region_handle::RegionBody;
+use lumisync_server::handles::sensor_handle::SensorBody;
+use lumisync_server::handles::user_handle::{UserLoginBody, UserRegisterBody};
+use lumisync_server::handles::window_handle::WindowBody;
 
 use crate::common::mock_app::MockApp;
 
 mod common;
 
 #[tokio::test]
-async fn test_auth_middleware() {
-    let app = MockApp::new().await;
+async fn test_auth_middleware_with_header() {
+    let mut app = MockApp::new().await;
+    app = app.with_auth_middleware().await;
 
-    let test_router = Router::new()
-        .route("/test", get(
-            |Extension(token_data): Extension<TokenClaims>| async move {
-                format!("{:?}", token_data)
-            }),
-        )
-        .route_layer(middleware::from_fn_with_state(TokenState {
-            token_service: app.token_service.clone(),
-            storage: app.storage.clone(),
-        }, auth));
-
-    let user = User {
-        id: 1,
-        group_id: 1,
-        email: String::from("test@test.com"),
-        password: String::from("test"),
-        role: String::from("test"),
-    };
-
-    let token = app.token_service.generate_token(user.to_owned()).unwrap();
-
-    let response = test_router
+    let response = app.router
         .oneshot(
             Request::builder()
-                .uri("/test")
-                .header("Authorization", format!("Bearer {}", token.token))
+                .uri("/check")
+                .header("Authorization", format!("Bearer {}", app.token))
                 .body(Body::empty())
                 .unwrap()
         )
@@ -59,29 +35,43 @@ async fn test_auth_middleware() {
     let res_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let res_body_str = String::from_utf8(res_body.to_vec()).unwrap();
 
-    assert!(res_body_str.contains(&user.id.to_string()));
-    assert!(res_body_str.contains(&user.role.to_string()));
+    assert!(res_body_str.contains(&app.admin.id.to_string()));
+    assert!(res_body_str.contains(&app.admin.role.to_string()));
+}
+
+#[tokio::test]
+async fn test_auth_middleware_with_query() {
+    let mut app = MockApp::new().await;
+    app = app.with_auth_middleware().await;
+
+    let response = app.router
+        .oneshot(
+            Request::builder()
+                .uri(format!("/check?token={}", app.token))
+                .body(Body::empty())
+                .unwrap()
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let res_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let res_body_str = String::from_utf8(res_body.to_vec()).unwrap();
+
+    assert!(res_body_str.contains(&app.admin.id.to_string()));
+    assert!(res_body_str.contains(&app.admin.role.to_string()));
 }
 
 #[tokio::test]
 async fn test_auth_middleware_with_bad_token() {
-    let app = MockApp::new().await;
+    let mut app = MockApp::new().await;
+    app = app.with_auth_middleware().await;
 
-    let test_router = Router::new()
-        .route("/test", get(
-            |Extension(token_data): Extension<TokenClaims>| async move {
-                format!("{:?}", token_data)
-            }),
-        )
-        .route_layer(middleware::from_fn_with_state(TokenState {
-            token_service: app.token_service.clone(),
-            storage: app.storage.clone(),
-        }, auth));
-
-    let response = test_router
+    let response = app.router
         .oneshot(
             Request::builder()
-                .uri("/test")
+                .uri("/check")
                 .header("Authorization", "Bearer bad_token")
                 .body(Body::empty())
                 .unwrap()
@@ -94,16 +84,9 @@ async fn test_auth_middleware_with_bad_token() {
 
 #[tokio::test]
 async fn test_user_register_router() {
-    let app = MockApp::new().await;
+    let mut app = MockApp::new().await;
+    app = app.with_user_handle().await;
     let group = app.create_test_group().await;
-
-    let user_router = Router::new()
-        .route("/register", post(create_user))
-        .with_state(UserState {
-            auth_service: app.auth_service.clone(),
-            token_service: app.token_service.clone(),
-            storage: app.storage.clone(),
-        });
 
     let req_body = serde_json::to_string(&UserRegisterBody {
         group: group.name,
@@ -112,7 +95,7 @@ async fn test_user_register_router() {
         role: String::from("admin"),
     }).unwrap();
 
-    let response = user_router
+    let response = app.router
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
@@ -140,75 +123,18 @@ async fn test_user_register_router() {
 }
 
 #[tokio::test]
-async fn test_user_authorize_router() {
-    let app = MockApp::new().await;
-    let group = app.create_test_group().await;
-    let user = app.create_test_user().await;
-
-    let user_router = Router::new()
-        .route("/authorize", get(authorize_user))
-        .route_layer(middleware::from_fn_with_state(TokenState {
-            token_service: app.token_service.clone(),
-            storage: app.storage.clone(),
-        }, auth))
-        .with_state(UserState {
-            auth_service: app.auth_service.clone(),
-            token_service: app.token_service.clone(),
-            storage: app.storage.clone(),
-        });
-
-    let token = app.token_service.generate_token(user.to_owned()).unwrap();
-
-    tokio::time::sleep(Duration::from_secs(1)).await;
-
-    let response = user_router
-        .oneshot(
-            Request::builder()
-                .method(http::Method::GET)
-                .uri("/authorize")
-                .header("Authorization", format!("Bearer {}", token.token))
-                .body(Body::empty())
-                .unwrap()
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::OK);
-
-    let res_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
-    let res_body_str = String::from_utf8(res_body.to_vec()).unwrap();
-    let claims = app
-        .token_service
-        .retrieve_token_claims(&res_body_str)
-        .unwrap()
-        .claims;
-
-    assert_eq!(claims.sub, user.id);
-    assert_eq!(claims.group_id, group.id);
-    assert_eq!(claims.role, user.role);
-    assert_ne!(res_body_str, token.token);
-}
-
-#[tokio::test]
 async fn test_user_authenticate_router() {
-    let app = MockApp::new().await;
+    let mut app = MockApp::new().await;
+    app = app.with_user_handle().await;
     let group = app.create_test_group().await;
     let user = app.create_test_user().await;
-
-    let user_router = Router::new()
-        .route("/authenticate", post(authenticate_user))
-        .with_state(UserState {
-            auth_service: app.auth_service.clone(),
-            token_service: app.token_service.clone(),
-            storage: app.storage.clone(),
-        });
 
     let req_body = serde_json::to_string(&UserLoginBody {
         email: user.email,
         password: String::from("test"),
     }).unwrap();
 
-    let response = user_router
+    let response = app.router
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
@@ -236,37 +162,63 @@ async fn test_user_authenticate_router() {
 }
 
 #[tokio::test]
-async fn test_region_create_router() {
-    let app = MockApp::new().await;
-    app.create_test_group().await;
+async fn test_user_authorize_router() {
+    let mut app = MockApp::new().await;
+    app = app.with_user_handle().await;
+    let group = app.create_test_group().await;
     let user = app.create_test_user().await;
 
-    let region_router = Router::new()
-        .route("/region", post(create_region))
-        .route_layer(middleware::from_fn_with_state(TokenState {
-            token_service: app.token_service.clone(),
-            storage: app.storage.clone(),
-        }, auth))
-        .with_state(RegionState {
-            storage: app.storage.clone(),
-        });
+    tokio::time::sleep(Duration::from_secs(1)).await;
 
-    let token = app.token_service.generate_token(user.to_owned()).unwrap();
+    let response = app.router
+        .oneshot(
+            Request::builder()
+                .method(http::Method::GET)
+                .uri("/authorize")
+                .header("Authorization", format!("Bearer {}", app.token))
+                .body(Body::empty())
+                .unwrap()
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let res_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let res_body_str = String::from_utf8(res_body.to_vec()).unwrap();
+    let claims = app
+        .token_service
+        .retrieve_token_claims(&res_body_str)
+        .unwrap()
+        .claims;
+
+    assert_eq!(claims.sub, user.id);
+    assert_eq!(claims.group_id, group.id);
+    assert_eq!(claims.role, user.role);
+    assert_ne!(res_body_str, app.token);
+}
+
+#[tokio::test]
+async fn test_region_create_router() {
+    let mut app = MockApp::new().await;
+    app = app.with_region_handle().await;
+    app.create_test_group().await;
+    app.create_test_user().await;
 
     let req_body = serde_json::to_string(&RegionBody {
         user_ids: vec![],
         name: String::from("Test Room"),
-        light: 100,
+        light: 200,
         temperature: 25.0,
     }).unwrap();
 
-    let response = region_router
+    let response = app.router
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
                 .uri("/region")
                 .header("Content-Type", "application/json")
-                .header("Authorization", format!("Bearer {}", token.token))
+                .header("Authorization", format!("Bearer {}", app.token))
                 .body(Body::from(req_body))
                 .unwrap()
         )
@@ -283,29 +235,18 @@ async fn test_region_create_router() {
 
 #[tokio::test]
 async fn test_region_get_router() {
-    let app = MockApp::new().await;
+    let mut app = MockApp::new().await;
+    app = app.with_region_handle().await;
     app.create_test_group().await;
-    let user = app.create_test_user().await;
+    app.create_test_user().await;
     let region = app.create_test_region().await;
 
-    let region_router = Router::new()
-        .route("/region", get(get_regions))
-        .route_layer(middleware::from_fn_with_state(TokenState {
-            token_service: app.token_service.clone(),
-            storage: app.storage.clone(),
-        }, auth))
-        .with_state(RegionState {
-            storage: app.storage.clone(),
-        });
-
-    let token = app.token_service.generate_token(user.to_owned()).unwrap();
-
-    let response = region_router
+    let response = app.router
         .oneshot(
             Request::builder()
                 .method(http::Method::GET)
                 .uri("/region")
-                .header("Authorization", format!("Bearer {}", token.token))
+                .header("Authorization", format!("Bearer {}", app.token))
                 .body(Body::empty())
                 .unwrap()
         )
@@ -322,23 +263,11 @@ async fn test_region_get_router() {
 
 #[tokio::test]
 async fn test_window_create_router() {
-    let app = MockApp::new().await;
+    let mut app = MockApp::new().await;
+    app = app.with_window_handle().await;
     app.create_test_group().await;
-    let user = app.create_test_user().await;
+    app.create_test_user().await;
     let region = app.create_test_region().await;
-
-    let window_router = Router::new()
-        .route("/window", post(create_window))
-        .route_layer(middleware::from_fn_with_state(TokenState {
-            token_service: app.token_service.clone(),
-            storage: app.storage.clone(),
-        }, auth))
-        .with_state(WindowState {
-            actuator_service: None,
-            storage: app.storage.clone(),
-        });
-
-    let token = app.token_service.generate_token(user.to_owned()).unwrap();
 
     let req_body = serde_json::to_string(&WindowBody {
         region_id: region.id,
@@ -346,13 +275,13 @@ async fn test_window_create_router() {
         state: 0.5,
     }).unwrap();
 
-    let response = window_router
+    let response = app.router
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
                 .uri("/window")
                 .header("Content-Type", "application/json")
-                .header("Authorization", format!("Bearer {}", token.token))
+                .header("Authorization", format!("Bearer {}", app.token))
                 .body(Body::from(req_body))
                 .unwrap()
         )
@@ -369,31 +298,19 @@ async fn test_window_create_router() {
 
 #[tokio::test]
 async fn test_window_get_router() {
-    let app = MockApp::new().await;
+    let mut app = MockApp::new().await;
+    app = app.with_window_handle().await;
     app.create_test_group().await;
-    let user = app.create_test_user().await;
+    app.create_test_user().await;
     app.create_test_region().await;
     let window = app.create_test_window().await;
 
-    let window_router = Router::new()
-        .route("/window", get(get_windows))
-        .route_layer(middleware::from_fn_with_state(TokenState {
-            token_service: app.token_service.clone(),
-            storage: app.storage.clone(),
-        }, auth))
-        .with_state(WindowState {
-            actuator_service: None,
-            storage: app.storage.clone(),
-        });
-
-    let token = app.token_service.generate_token(user.to_owned()).unwrap();
-
-    let response = window_router
+    let response = app.router
         .oneshot(
             Request::builder()
                 .method(http::Method::GET)
                 .uri("/window")
-                .header("Authorization", format!("Bearer {}", token.token))
+                .header("Authorization", format!("Bearer {}", app.token))
                 .body(Body::empty())
                 .unwrap()
         )
@@ -410,24 +327,12 @@ async fn test_window_get_router() {
 
 #[tokio::test]
 async fn test_window_update_router() {
-    let app = MockApp::new().await;
+    let mut app = MockApp::new().await;
+    app = app.with_window_handle().await;
     app.create_test_group().await;
-    let user = app.create_test_user().await;
+    app.create_test_user().await;
     let region = app.create_test_region().await;
     let window = app.create_test_window().await;
-
-    let window_router = Router::new()
-        .route("/window/:window_id", put(update_window))
-        .route_layer(middleware::from_fn_with_state(TokenState {
-            token_service: app.token_service.clone(),
-            storage: app.storage.clone(),
-        }, auth))
-        .with_state(WindowState {
-            actuator_service: None,
-            storage: app.storage.clone(),
-        });
-
-    let token = app.token_service.generate_token(user.to_owned()).unwrap();
 
     let req_body = serde_json::to_string(&WindowBody {
         region_id: region.id,
@@ -435,13 +340,13 @@ async fn test_window_update_router() {
         state: 0.8,
     }).unwrap();
 
-    let response = window_router
+    let response = app.router
         .oneshot(
             Request::builder()
                 .method(http::Method::PUT)
                 .uri(format!("/window/{}", window.id))
                 .header("Content-Type", "application/json")
-                .header("Authorization", format!("Bearer {}", token.token))
+                .header("Authorization", format!("Bearer {}", app.token))
                 .body(Body::from(req_body))
                 .unwrap()
         )
@@ -458,31 +363,19 @@ async fn test_window_update_router() {
 
 #[tokio::test]
 async fn test_window_delete_router() {
-    let app = MockApp::new().await;
+    let mut app = MockApp::new().await;
+    app = app.with_window_handle().await;
     app.create_test_group().await;
-    let user = app.create_test_user().await;
+    app.create_test_user().await;
     app.create_test_region().await;
     let window = app.create_test_window().await;
 
-    let window_router = Router::new()
-        .route("/window/:window_id", delete(delete_window))
-        .route_layer(middleware::from_fn_with_state(TokenState {
-            token_service: app.token_service.clone(),
-            storage: app.storage.clone(),
-        }, auth))
-        .with_state(WindowState {
-            actuator_service: None,
-            storage: app.storage.clone(),
-        });
-
-    let token = app.token_service.generate_token(user.to_owned()).unwrap();
-
-    let response = window_router
+    let response = app.router
         .oneshot(
             Request::builder()
                 .method(http::Method::DELETE)
                 .uri(format!("/window/{}", window.id))
-                .header("Authorization", format!("Bearer {}", token.token))
+                .header("Authorization", format!("Bearer {}", app.token))
                 .body(Body::empty())
                 .unwrap()
         )
@@ -494,36 +387,25 @@ async fn test_window_delete_router() {
 
 #[tokio::test]
 async fn test_sensor_create_router() {
-    let app = MockApp::new().await;
+    let mut app = MockApp::new().await;
+    app = app.with_sensor_handle().await;
     app.create_test_group().await;
-    let user = app.create_test_user().await;
+    app.create_test_user().await;
     app.create_test_region().await;
     app.create_test_window().await;
-
-    let sensor_router = Router::new()
-        .route("/sensor", post(create_sensor))
-        .route_layer(middleware::from_fn_with_state(TokenState {
-            token_service: app.token_service.clone(),
-            storage: app.storage.clone(),
-        }, auth))
-        .with_state(SensorState {
-            storage: app.storage.clone(),
-        });
-
-    let token = app.token_service.generate_token(user.to_owned()).unwrap();
 
     let req_body = serde_json::to_string(&SensorBody {
         region_id: 1,
         name: String::from("SENSOR-MOCK"),
     }).unwrap();
 
-    let response = sensor_router
+    let response = app.router
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
                 .uri("/sensor")
                 .header("Content-Type", "application/json")
-                .header("Authorization", format!("Bearer {}", token.token))
+                .header("Authorization", format!("Bearer {}", app.token))
                 .body(Body::from(req_body))
                 .unwrap()
         )
@@ -540,32 +422,21 @@ async fn test_sensor_create_router() {
 
 #[tokio::test]
 async fn test_sensor_get_router() {
-    let app = MockApp::new().await;
+    let mut app = MockApp::new().await;
+    app = app.with_sensor_handle().await;
     app.create_test_group().await;
-    let user = app.create_test_user().await;
+    app.create_test_user().await;
     app.create_test_region().await;
     app.create_test_window().await;
     app.create_test_sensor().await;
 
-    let sensor_router = Router::new()
-        .route("/sensor", get(get_sensors))
-        .route_layer(middleware::from_fn_with_state(TokenState {
-            token_service: app.token_service.clone(),
-            storage: app.storage.clone(),
-        }, auth))
-        .with_state(SensorState {
-            storage: app.storage.clone(),
-        });
-
-    let token = app.token_service.generate_token(user.to_owned()).unwrap();
-
-    let response = sensor_router
+    let response = app.router
         .oneshot(
             Request::builder()
                 .method(http::Method::GET)
                 .uri("/sensor")
                 .header("Content-Type", "application/json")
-                .header("Authorization", format!("Bearer {}", token.token))
+                .header("Authorization", format!("Bearer {}", app.token))
                 .body(Body::empty())
                 .unwrap()
         )
@@ -582,31 +453,20 @@ async fn test_sensor_get_router() {
 
 #[tokio::test]
 async fn test_sensor_get_by_region() {
-    let app = MockApp::new().await;
+    let mut app = MockApp::new().await;
+    app = app.with_sensor_handle().await;
     app.create_test_group().await;
-    let user = app.create_test_user().await;
+    app.create_test_user().await;
     let region = app.create_test_region().await;
     app.create_test_window().await;
     app.create_test_sensor().await;
 
-    let sensor_router = Router::new()
-        .route("/sensor/:region_id", get(get_sensors_by_region))
-        .route_layer(middleware::from_fn_with_state(TokenState {
-            token_service: app.token_service.clone(),
-            storage: app.storage.clone(),
-        }, auth))
-        .with_state(SensorState {
-            storage: app.storage.clone(),
-        });
-
-    let token = app.token_service.generate_token(user.to_owned()).unwrap();
-
-    let response = sensor_router
+    let response = app.router
         .oneshot(
             Request::builder()
                 .method(http::Method::GET)
                 .uri(format!("/sensor/{}", region.id))
-                .header("Authorization", format!("Bearer {}", token.token))
+                .header("Authorization", format!("Bearer {}", app.token))
                 .body(Body::empty())
                 .unwrap()
         )
