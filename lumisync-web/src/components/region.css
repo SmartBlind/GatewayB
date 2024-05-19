@@ -5,15 +5,16 @@
 
   & > .summary {
     display: flex;
-    padding: 20px;
-    flex-direction: row;
     align-items: center;
+    flex-direction: row;
+    padding: 20px;
     cursor: pointer;
+    border-bottom: 1px solid #ddd;
 
     .name {
       flex: auto;
-      color: gray;
       padding: 0 0.5rem;
+      color: gray;
 
       &::before {
         content: "Name: ";
@@ -22,8 +23,8 @@
     }
 
     .light {
-      color: darkgoldenrod;
       padding: 0 0.5rem;
+      color: darkgoldenrod;
 
       &::before {
         content: "Light: ";
@@ -32,12 +33,47 @@
     }
 
     .temperature {
-      color: darkcyan;
       padding: 0 0.5rem;
+      color: darkcyan;
 
       &::before {
         content: "Temperature: ";
         color: black;
+      }
+    }
+  }
+
+  & > .details {
+    padding: 0 20px 20px 40px;
+
+    & h3 {
+      font-weight: lighter;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #333;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    & ul {
+      margin: 0;
+      padding: 0 0 0 16px;
+      list-style-type: none;
+
+      & li {
+        margin: 6px 0;
+        padding: 8px 12px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        background-color: #fafafa;
+
+        &:hover {
+          background-color: #f1f1f1;
+        }
       }
     }
   }

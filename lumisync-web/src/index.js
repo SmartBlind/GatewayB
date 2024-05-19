@@ -1,13 +1,13 @@
 import { Dashboard, Debug, RegionList, SensorList, User, WindowList } from "./components/index.js";
-import { authUser, loginUser } from "./api.js";
+import { authUser, loginUser, streamSensorData } from "./api.js";
 
 import "./style.css";
 
 /** @type {{[key: string]: { event: CustomEvent<{type: string}>, element: HTMLElement}}} */
 export const NAV_TARGET = {
     "region": {
-        groups: new Set(["sensor", "window"]),
         event: new CustomEvent("navigate", { detail: "region" }),
+        groups: new Set(["sensor", "window"]),
         element: new RegionList(),
     },
     "sensor": {
@@ -57,21 +57,26 @@ void async function main(app) {
 
     // If token exist, auth it directly and open dashboard if success.
     if (!!globalThis.token) {
-        await authUser(data => globalThis.token = data);
-        app?.insertAdjacentElement("afterbegin", dashboard);
+        try {
+            globalThis.token = await authUser();
+            app?.insertAdjacentElement("afterbegin", dashboard);
+        } catch (error) {
+            console.warn("Fail to refresh token, please login once again.")
+        }
     }
 
     if (mode === "development") {
-        // Clean development cache.
+        // Clean development cache & Login develop admin account.
         window.addEventListener("beforeunload", () => localStorage.removeItem("auth_token"));
 
         let certified = false;
-        loginUser({ email: "test@test.com", password: "test" }, data => globalThis.token = data);
-
-        const text = [{ event: "login", description: "To dashboard" }, { event: "logout", description: "To auth"}];
+        const states = [
+            { event: "login", description: "To dashboard" },
+            { event: "logout", description: "To auth"},
+        ];
 
         const enter = document.createElement("button");
-        enter.textContent = text[certified | 0].description;
+        enter.textContent = states[certified | 0].description;
         Object.assign(enter.style, {
             position: "fixed", right: "10px", bottom: "10px", width: "135px", padding: "6px",
             backgroundColor: "#f39c12", color: "white", border: "none", borderRadius: "5px",
@@ -79,10 +84,17 @@ void async function main(app) {
         });
 
         app?.insertAdjacentElement("beforeend", enter);
-        enter.addEventListener("click", () => {
-            certified = !certified;
-            self.dispatchEvent(new Event(text[certified ^ 1].event));
-            enter.textContent = text[certified | 0].description;
-        });
+
+        loginUser({ email: "test@test.com", password: "test" })
+            .then(data => {
+                globalThis.token = data;
+
+                enter.addEventListener("click", () => {
+                    certified = !certified;
+                    self.dispatchEvent(new Event(states[certified ^ 1].event));
+                    enter.textContent = states[certified | 0].description;
+                });
+            })
+            .catch(console.error);
     }
 }(document.getElementById("app"));

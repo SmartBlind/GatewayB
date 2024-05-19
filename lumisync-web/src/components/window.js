@@ -4,8 +4,9 @@ import SensorGraph from "./sensor-graph.js";
 import styleSheet from "./window.css?raw";
 
 class Window extends HTMLElement {
-    static observedAttributes = ["window-id", "window-data"];
-    #container;
+    static observedAttributes = ["window-id"];
+    #elements = {};
+    #model = {};
 
     constructor() {
         super();
@@ -14,59 +15,61 @@ class Window extends HTMLElement {
 
         sheet.replace(styleSheet).then(style => shadowRoot.adoptedStyleSheets = [style]);
 
-        this.#container = shadowRoot.appendChild(document.createElement("div"));
-        this.#container.className = "container";
+        const container = shadowRoot.appendChild(document.createElement("div"));
+        container.className = "container";
+
+        const summary = container.appendChild(document.createElement("div"));
+        summary.className = "summary";
+
+        const details = container.appendChild(document.createElement("div"));
+        details.className = "details";
+        details.style.display = "none";
+
+        const control = new WindowControl();
+        details.append(control);
+
+        this.toggleContent = this.toggleContent.bind(this);
+
+        this.#elements = { container, summary, details, control };
     }
 
     get windowId() { return this.getAttribute("window-id"); }
 
     set windowId(value) { this.setAttribute("window-id", value); }
 
-    get windowData() { return JSON.parse(this.getAttribute("window-data")); }
+    get windowData() { return this.#model; }
 
-    set windowData(value) { this.setAttribute("window-data", value); }
+    set windowData(value) {
+        this.#model = { ...this.#model, ...value };
+        this.updateHeader(this.#elements.summary, this.#model);
+    }
 
     connectedCallback() {
-        const { sensor_id, ...data } = this.windowData;
+        this.updateHeader(this.#elements.summary, this.#model);
+        this.#elements.summary.addEventListener("click", this.toggleContent);
+    }
 
-        this.#container.innerHTML = null;
-
-        this.updateHeader(data);
-        this.updateSensors(sensor_id);
+    disconnectedCallback() {
+        this.#elements.summary.removeEventListener("click", this.toggleContent);
+        updateHeader(this.#elements.summary);
     }
 
     attributeChangedCallback(name, oldValue, newValue) {
-        if (name === "window-data" && oldValue !== newValue) {
-            const { sensor_id, ...data } = this.windowData;
-
-            this.#container.innerHTML = null;
-
-            this.updateHeader(data);
-            this.updateSensors(sensor_id);
+        if (name === "window-id" && oldValue !== newValue) {
+            this.updateHeader(this.#elements.summary);
         }
     }
 
-    updateHeader({ name, state } = {}) {
-        const summary = this.#container.appendChild(document.createElement("div"));
-        summary.className = "summary";
-
-        const info = document.createElement("div");
-        info.className = "info";
-        info.innerHTML = `
+    updateHeader(container, { name = "Unknown", state = NaN } = {}) {
+        container.innerHTML = `
           <span class="name">${name}</span>
           <span class="state">${state}</span>
         `;
-
-        const controller = new WindowControl();
-
-        summary.append(info, controller);
     }
 
-    updateSensors(sensorId) {
-        const graph = new SensorGraph();
-        graph.sensorId = sensorId;
-
-        this.#container.append(graph);
+    toggleContent() {
+        this.#model.show = !this.#model.show;
+        this.#elements.details.style.display = this.#model.show ? "block" : "none";
     }
 }
 

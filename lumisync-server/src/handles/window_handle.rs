@@ -75,6 +75,42 @@ pub async fn get_windows(
     Ok(Json(windows))
 }
 
+pub async fn get_windows_by_region(
+    Extension(token_data): Extension<TokenClaims>,
+    Path(region_id): Path<i32>,
+    State(state): State<WindowState>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let row: (i64, ) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*) FROM users_regions_link ur
+            WHERE ur.user_id = $1 AND ur.region_id = $2;
+        "#
+    )
+        .bind(&token_data.sub)
+        .bind(&region_id)
+        .fetch_one(state.storage.get_pool())
+        .await
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+
+    let windows: Vec<Window> = if row.0 > 0 {
+        sqlx::query_as(
+            r#"
+            SELECT w.* FROM windows w
+                JOIN regions r ON w.region_id = r.id
+                WHERE r.id = $1;
+        "#
+        )
+            .bind(&token_data.sub)
+            .fetch_all(state.storage.get_pool())
+            .await
+            .map_err(|_| StatusCode::NOT_FOUND)?
+    } else {
+        Vec::new()
+    };
+
+    Ok(Json(windows))
+}
+
 pub async fn get_window_owners(
     Path(window_id): Path<i32>,
     State(state): State<WindowState>

@@ -326,6 +326,35 @@ async fn test_window_get_router() {
 }
 
 #[tokio::test]
+async fn test_window_get_by_region_router() {
+    let mut app = MockApp::new().await;
+    app = app.with_window_handle().await;
+    app.create_test_group().await;
+    app.create_test_user().await;
+    let region = app.create_test_region().await;
+    let window = app.create_test_window().await;
+
+    let response = app.router
+        .oneshot(
+            Request::builder()
+                .method(http::Method::GET)
+                .uri(format!("/window/region/{}", region.id))
+                .header("Authorization", format!("Bearer {}", app.token))
+                .body(Body::empty())
+                .unwrap()
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let res_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let res_body_str = String::from_utf8(res_body.to_vec()).unwrap();
+
+    assert!(res_body_str.contains(&window.name));
+}
+
+#[tokio::test]
 async fn test_window_update_router() {
     let mut app = MockApp::new().await;
     app = app.with_window_handle().await;
@@ -392,7 +421,6 @@ async fn test_sensor_create_router() {
     app.create_test_group().await;
     app.create_test_user().await;
     app.create_test_region().await;
-    app.create_test_window().await;
 
     let req_body = serde_json::to_string(&SensorBody {
         region_id: 1,
@@ -427,8 +455,7 @@ async fn test_sensor_get_router() {
     app.create_test_group().await;
     app.create_test_user().await;
     app.create_test_region().await;
-    app.create_test_window().await;
-    app.create_test_sensor().await;
+    let sensor = app.create_test_sensor().await;
 
     let response = app.router
         .oneshot(
@@ -448,24 +475,23 @@ async fn test_sensor_get_router() {
     let res_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let res_body_str = String::from_utf8(res_body.to_vec()).unwrap();
 
-    assert!(res_body_str.contains("SENSOR-MOCK"));
+    assert!(res_body_str.contains(&sensor.name));
 }
 
 #[tokio::test]
-async fn test_sensor_get_by_region() {
+async fn test_sensor_get_by_region_router() {
     let mut app = MockApp::new().await;
     app = app.with_sensor_handle().await;
     app.create_test_group().await;
     app.create_test_user().await;
     let region = app.create_test_region().await;
-    app.create_test_window().await;
-    app.create_test_sensor().await;
+    let sensor = app.create_test_sensor().await;
 
     let response = app.router
         .oneshot(
             Request::builder()
                 .method(http::Method::GET)
-                .uri(format!("/sensor/{}", region.id))
+                .uri(format!("/sensor/region/{}", region.id))
                 .header("Authorization", format!("Bearer {}", app.token))
                 .body(Body::empty())
                 .unwrap()
@@ -478,5 +504,5 @@ async fn test_sensor_get_by_region() {
     let res_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let res_body_str = String::from_utf8(res_body.to_vec()).unwrap();
 
-    assert!(res_body_str.contains("SENSOR-MOCK"));
+    assert!(res_body_str.contains(&sensor.name));
 }

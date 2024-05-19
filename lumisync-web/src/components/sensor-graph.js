@@ -1,46 +1,31 @@
-import { Chart } from "chart.js/auto";
 import { streamSensorData } from "../api.js";
+import { Chart } from "chart.js/auto";
 
-class SensorGraph extends HTMLElement {
-    static observedAttributes = ["sensor-id"];
-    #dataset = { temperature: [], light: [] };
+class SensorGraph extends EventTarget {
+    #model = { id: NaN, labels: [], temperature: [], light: [] };
     #source;
+    #chart;
 
-    constructor() {
+    constructor(container) {
         super();
-        this.canvas = this.appendChild(document.createElement("canvas"));
+        const canvas = container.appendChild(document.createElement("canvas"));
+        this.#chart = this.createChart(canvas);
     }
 
-    get sensorId() { return this.getAttribute("sensor-id"); }
-
-    set sensorId(value) { this.setAttribute("sensor-id", value); }
-
-    connectedCallback() {
-        this.renderChart(this.canvas);
-        this.listen(this.sensorId);
-    }
-
-    attributeChangedCallback(name, oldValue, newValue) {
-        if (name === "sensor-id" && oldValue !== newValue) {
-            this.dispose();
-            this.listen(this.sensorId);
-        }
-    }
-
-    renderChart(ctx) {
-        this.chart = new Chart(ctx, {
+    createChart(canvas) {
+        return new Chart(canvas, {
             type: "line",
             data: {
-                labels: [],
+                labels: this.#model.labels,
                 datasets: [{
-                    label: 'Temperature (°C)',
-                    data: this.#dataset.temperature,
-                    borderColor: 'rgb(136, 243, 72)',
+                    label: "Temperature (°C)",
+                    data: this.#model.temperature,
+                    borderColor: "rgb(136, 243, 72)",
                     tension: 0.4
                 }, {
-                    label: 'Light (lux)',
-                    data: this.#dataset.light,
-                    borderColor: 'rgb(255, 219, 99)',
+                    label: "Light (lux)",
+                    data: this.#model.light,
+                    borderColor: "rgb(255, 219, 99)",
                     tension: 0.4
                 }]
             },
@@ -50,31 +35,30 @@ class SensorGraph extends HTMLElement {
         });
     }
 
-    listen(sensorId) {
-        if (!!sensorId) {
-            this.#source = streamSensorData(sensorId, data => {
-                data.forEach(({ time, light, temperature }) => {
-                    this.chart.data.labels.push(new Date(time).toLocaleTimeString());
-                    this.#dataset.temperature.push(temperature);
-                    this.#dataset.light.push(light);
-                });
-                this.chart.update();
+    updateCanvas(sensorId) {
+        this.#source = streamSensorData(sensorId, data => {
+            data.forEach(({ time, light, temperature }) => {
+                this.#model.labels.push(new Date(time).toLocaleTimeString());
+                this.#model.temperature.push(temperature);
+                this.#model.light.push(light);
             });
-        }
+            this.#chart?.update();
+        });
     }
 
     dispose() {
-        this.#dataset = { temperature: [], light: [] };
+        this.#model = { ...this.#model, labels: [], temperature: [], light: [] };
 
-        if (!!this.chart) {
-            this.chart.data.labels = [];
-            this.chart.update();
+        if (!!this.#chart) {
+            this.#chart.update();
+            this.#chart = null;
         }
 
-        if (!!this.#source) this.#source.close();
+        if (!!this.#source) {
+            this.#source.close();
+            this.#source = null;
+        }
     }
 }
-
-customElements.define("lumisync-sensor-graph", SensorGraph);
 
 export default SensorGraph;

@@ -9,7 +9,7 @@ const STATE = {
 
 class User extends HTMLElement {
     #state = STATE.login;
-    #elements = {};
+    #panels = {};
 
     constructor() {
         super();
@@ -27,18 +27,22 @@ class User extends HTMLElement {
         const section = container.appendChild(document.createElement("section"));
         section.className = "section";
 
-        this.#elements = { ...this.createPanels(section) };
+        this.#panels = { ...this.createPanels(section) };
     }
 
     connectedCallback() {
-        self.addEventListener("navigate", event => {
-            if (event.detail in STATE) {
-                this.updatePanel(STATE[event.detail]);
-            }
-        });
+        self.addEventListener("navigate", this.updatePanels.bind(this));
 
-        for (const form of Object.values(this.#elements)) {
+        for (const form of Object.values(this.#panels)) {
             form.addEventListener("submit", this.auth.bind(this));
+        }
+    }
+
+    disconnectedCallback() {
+        self.removeEventListener("navigate", this.updatePanels.bind(this));
+
+        for (const form of Object.values(this.#panels)) {
+            form.removeEventListener("submit", this.auth.bind(this));
         }
     }
 
@@ -81,14 +85,16 @@ class User extends HTMLElement {
         };
     }
 
-    updatePanel(targetState) {
-        const currentForm = this.#elements[Object.keys(STATE)[this.#state]];
-        const nextForm = this.#elements[Object.keys(STATE)[targetState]];
+    updatePanels(event) {
+        if (event.detail in STATE) {
+            const currentForm = this.#panels[Object.keys(STATE)[this.#state]];
+            const nextForm = this.#panels[Object.keys(STATE)[(STATE[event.detail])]];
 
-        currentForm.style.display = "none";
-        nextForm.style.display = "flex";
+            currentForm.style.display = "none";
+            nextForm.style.display = "flex";
 
-        this.#state = targetState;
+            this.#state = STATE[event.detail];
+        }
     }
 
     async auth(event) {

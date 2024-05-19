@@ -9,7 +9,7 @@ use lumisync_server::configs::storage::Storage;
 use lumisync_server::handles::region_handle::{create_region, get_regions, RegionState};
 use lumisync_server::handles::sensor_handle::{create_sensor, get_sensors, get_sensors_by_region, SensorState};
 use lumisync_server::handles::user_handle::{authenticate_user, authorize_user, create_user, UserState};
-use lumisync_server::handles::window_handle::{create_window, delete_window, get_windows, update_window, WindowState};
+use lumisync_server::handles::window_handle::{create_window, delete_window, get_windows, get_windows_by_region, update_window, WindowState};
 use lumisync_server::middlewares::auth_middleware::{auth, TokenState};
 use lumisync_server::models::group::Group;
 use lumisync_server::models::region::Region;
@@ -127,6 +127,7 @@ impl MockApp {
                 Router::new()
                     .route("/window", get(get_windows).post(create_window))
                     .route("/window/:window_id", put(update_window).delete(delete_window))
+                    .route("/window/region/:region_id", get(get_windows_by_region))
                     .route_layer(middleware::from_fn_with_state(TokenState {
                         token_service: self.token_service.clone(),
                         storage: self.storage.clone(),
@@ -145,7 +146,7 @@ impl MockApp {
             .merge(
                 Router::new()
                     .route("/sensor", get(get_sensors).post(create_sensor))
-                    .route("/sensor/:region_id", get(get_sensors_by_region))
+                    .route("/sensor/region/:region_id", get(get_sensors_by_region))
                     .route_layer(middleware::from_fn_with_state(TokenState {
                         token_service: self.token_service.clone(),
                         storage: self.storage.clone(),

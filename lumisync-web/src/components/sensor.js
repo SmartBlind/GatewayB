@@ -22,6 +22,9 @@ class Sensor extends HTMLElement {
 
         const details = container.appendChild(document.createElement("div"));
         details.className = "details";
+        details.style.display = "none";
+
+        this.toggleContent = this.toggleContent.bind(this);
 
         this.#elements = { container, summary, details };
     }
@@ -30,14 +33,20 @@ class Sensor extends HTMLElement {
 
     set sensorId(value) { this.setAttribute("sensor-id", value); }
 
-    set sensorModel(value) {
+    set sensorData(value) {
         this.#model = { ...this.#model, ...value };
         this.updateHeader(this.#elements.summary, this.#model);
     }
 
     connectedCallback() {
         this.updateHeader(this.#elements.summary, this.#model);
-        this.updateSensors(this.#elements.details, this.sensorId);
+        this.#elements.summary.addEventListener("click", this.toggleContent);
+    }
+
+    disconnectedCallback() {
+        this.#elements.summary.removeEventListener("click", this.toggleContent);
+        updateHeader(this.#elements.summary);
+        this.graph?.dispose();
     }
 
     attributeChangedCallback(name, oldValue, newValue) {
@@ -51,13 +60,21 @@ class Sensor extends HTMLElement {
         container.innerHTML = `<span class="name">${name}</span>`;
     }
 
+    toggleContent() {
+        this.#model.show = !this.#model.show;
+        this.#elements.details.style.display = this.#model.show ? "block" : "none";
+        this.updateSensors(this.#elements.details, this.sensorId);
+    }
+
     updateSensors(container, id) {
-        container.innerHTML = null;
-
-        const graph = new SensorGraph();
-        graph.sensorId = id;
-
-        container.append(graph);
+        if (this.#model.show) {
+            if (!isNaN(Number(id)) && Number(id) > 0) {
+                this.graph ??= new SensorGraph(container);
+                this.graph.updateCanvas(Number(id));
+            }
+        } else {
+            this.graph?.dispose();
+        }
     }
 }
 

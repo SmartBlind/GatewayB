@@ -12,7 +12,7 @@ use crate::handles::region_handle::{create_region, get_regions, RegionState};
 use crate::handles::sensor_handle::{get_sensor_data, get_sensor_data_in_range, get_sensors, get_sensors_by_region, SensorState};
 use crate::handles::setting_handle::{save_setting, SettingState};
 use crate::handles::user_handle::{authenticate_user, authorize_user, create_user, UserState};
-use crate::handles::window_handle::{create_window, delete_window, get_window_owners, get_windows, update_window, WindowState};
+use crate::handles::window_handle::{create_window, delete_window, get_window_owners, get_windows, get_windows_by_region, update_window, WindowState};
 use crate::middlewares::auth_middleware::{auth, TokenState};
 use crate::services::actuator_service::ActuatorService;
 use crate::services::auth_service::AuthService;
@@ -61,6 +61,7 @@ pub async fn create_app(settings: &Arc<Settings>) -> Router {
     let windows = Router::new()
         .route("/", get(get_windows).post(create_window))
         .route("/:window_id", get(get_window_owners).put(update_window).delete(delete_window))
+        .route("/region/:region_id", get(get_windows_by_region))
         .route_layer(middleware::from_fn_with_state(token_state.clone(), auth))
         .with_state(WindowState {
             actuator_service: actuator_service.clone(),
@@ -69,7 +70,7 @@ pub async fn create_app(settings: &Arc<Settings>) -> Router {
 
     let sensors = Router::new()
         .route("/", get(get_sensors))
-        .route("/:region_id", get(get_sensors_by_region))
+        .route("/region/:region_id", get(get_sensors_by_region))
         .route("/data/:sensor_id", get(get_sensor_data_in_range))
         .route("/data/sse/:sensor_id", get(get_sensor_data))
         .route_layer(middleware::from_fn_with_state(token_state.clone(), auth))

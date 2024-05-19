@@ -1,5 +1,3 @@
-import { fetchEventSource } from "@microsoft/fetch-event-source";
-
 export const API = {
     "control": `${globalThis.__APP_API_URL__}/control`,
     "users": `${globalThis.__APP_API_URL__}/users`,
@@ -44,82 +42,59 @@ export async function control(command, callback) {
  * Register user, call `user_handle::create_user`.
  *
  * @param {{group: string, email: string, password: string, role: string}} data
- * @param {function(string): void} callback
- * @return {Promise<void>}
+ * @return {Promise<string>}
  */
-export async function registerUser(data, callback) {
-    try {
-        const response = await fetch(`${API.users}/register`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(data)
-        });
+export async function registerUser(data) {
+    const response = await fetch(`${API.users}/register`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    });
 
-        if (response.ok) {
-            callback?.(await response.text());
-            console.log("Register user successfully!");
-        } else {
-            console.error("Failed to register user");
-        }
-    } catch (error) {
-        console.error("Internal error:", error);
-    }
+    if (!response.ok) throw new Error("Failed to register user.");
+
+    return await response.text();
 }
 
 /**
  * Authorize user, call `user_handle::authorize_user`.
  *
  * @param {function(string): void} callback
- * @return {Promise<void>}
+ * @return {Promise<string>}
  */
 export async function authUser(callback) {
-    try {
-        const response = await fetch(`${API.users}/authorize`, {
-            method: "GET",
-            headers: {
-                "Authorization": `Bearer ${globalThis.token}`
-            },
-        });
-
-        if (response.ok) {
-            callback?.(await response.text());
-            console.log("Auth successfully!");
-        } else {
-            console.error("Failed to Auth.");
+    const response = await fetch(`${API.users}/authorize`, {
+        method: "GET",
+        headers: {
+            "Authorization": `Bearer ${globalThis.token}`
         }
-    } catch (error) {
-        console.error("Internal error:", error);
-    }
+    });
+
+    if (!response.ok) throw new Error("Failed to auth account.");
+
+    return await response.text();
 }
 
 /**
  * Authenticate user, call `user_handle::authenticate_user`.
  *
  * @param {{email: string, password: string}} data
- * @param {function(string): void} callback
- * @return {Promise<void>}
+ * @return {Promise<string>}
  */
-export async function loginUser(data, callback) {
-    try {
-        const response = await fetch(`${API.users}/authenticate`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(data)
-        });
+export async function loginUser(data) {
+    const response = await fetch(`${API.users}/authenticate`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    });
 
-        if (response.ok) {
-            callback?.(await response.text());
-            console.log("Login successfully!");
-        } else {
-            console.error("Failed to login.");
-        }
-    } catch (error) {
-        console.error("Internal error:", error);
-    }
+    if (!response.ok) throw new Error("Failed to login.");
+
+    return await response.text();
 }
 
 /**
@@ -134,54 +109,37 @@ export async function loginUser(data, callback) {
 /**
  * Get all regions control by current user, call `region_handle::get_regions`.
  *
- * @param {function([Region]): void} callback
- * @return {Promise<void>}
+ * @return {Promise<[Region]>}
  */
-export async function getRegions(callback) {
-    try {
-        const response = await fetch(API.regions, {
-            method: "GET",
-            headers: {
-                "Authorization": `Bearer ${globalThis.token}`
-            },
-        });
-
-        if (response.ok) {
-            callback?.(await response.json());
-            console.log("Get regions successfully!");
-        } else {
-            console.error("Fail to get regions.");
+export async function getRegions() {
+    const response = await fetch(API.regions, {
+        method: "GET",
+        headers: {
+            "Authorization": `Bearer ${globalThis.token}`
         }
-    } catch (error) {
-        console.error("Internal error:", error);
-    }
+    });
+
+    return response.ok ? await response.json() : [];
 }
 
 /**
  * Create region control by current user, call `region_handle::create_region`.
  *
  * @param {{user_ids?: number[], name: string, light?: number, temperature?: number}} data
- * @param {function(Region): void} callback
- * @return {Promise<void>}
+ * @return {Promise<Region>}
  */
-export async function createRegion(data, callback) {
-    try {
-        const response = await fetch(API.regions, {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${globalThis.token}`
-            },
-        });
+export async function createRegion(data) {
+    const response = await fetch(API.regions, {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${globalThis.token}`
+        },
+        body: JSON.stringify(data)
+    });
 
-        if (response.ok) {
-            callback?.(await response.json());
-            console.log("Get regions successfully!");
-        } else {
-            console.error("Fail to get regions.");
-        }
-    } catch (error) {
-        console.error("Internal error:", error);
-    }
+    if (!response.ok) throw new Error("Fail to create regions.");
+
+    return await response.json();
 }
 
 export async function saveSettings(data, callback) {
@@ -216,27 +174,35 @@ export async function saveSettings(data, callback) {
 /**
  * Get all windows control by current user, call `window_handle::get_windows`
  *
- * @param {function([Window]): void} callback
- * @return {Promise<void>}
+ * @return {Promise<[Window]>}
  */
-export async function getWindows(callback) {
-    try {
-        const response = await fetch(API.windows, {
-            method: "GET",
-            headers: {
-                "Authorization": `Bearer ${globalThis.token}`
-            },
-        });
-
-        if (response.ok) {
-            callback?.(await response.json());
-            console.log("Get windows successfully!");
-        } else {
-            console.error("Fail to get windows.");
+export async function getWindows() {
+    const response = await fetch(API.windows, {
+        method: "GET",
+        headers: {
+            "Authorization": `Bearer ${globalThis.token}`
         }
-    } catch (error) {
-        console.error("Internal error:", error);
-    }
+    });
+
+    return response.ok ? await response.json() : [];
+}
+
+/**
+ * Get all sensors control by current user under target region, call
+ * `window_handle::get_windows_by_region`
+ *
+ * @param {number} regionId
+ * @return {Promise<[Window]>}
+ */
+export async function getWindowsByRegion(regionId) {
+    const response = await fetch(`${API.windows}/region/${regionId}`, {
+        method: "GET",
+        headers: {
+            "Authorization": `Bearer ${globalThis.token}`
+        }
+    });
+
+    return response.ok ? await response.json() : [];
 }
 
 /**
@@ -249,27 +215,17 @@ export async function getWindows(callback) {
 /**
  * Get all sensors control by current user, call `sensor_handle::get_sensors`
  *
- * @param {function([Sensor]): void} callback
- * @return {Promise<void>}
+ * @return {Promise<[Sensor]>}
  */
-export async function getSensors(callback) {
-    try {
-        const response = await fetch(API.sensors, {
-            method: "GET",
-            headers: {
-                "Authorization": `Bearer ${globalThis.token}`
-            },
-        });
-
-        if (response.ok) {
-            callback?.(await response.json());
-            console.log("Get sensors successfully!");
-        } else {
-            console.error("Fail to get sensors.");
+export async function getSensors() {
+    const response = await fetch(API.sensors, {
+        method: "GET",
+        headers: {
+            "Authorization": `Bearer ${globalThis.token}`
         }
-    } catch (error) {
-        console.error("Internal error:", error);
-    }
+    });
+
+    return response.ok ? await response.json() : [];
 }
 
 /**
@@ -277,27 +233,17 @@ export async function getSensors(callback) {
  * `sensor_handle::get_sensors_by_region`
  *
  * @param {number} regionId
- * @param {function([Sensor]): void} callback
- * @return {Promise<void>}
+ * @return {Promise<[Sensor]>}
  */
-export async function getSensorsByRegion(regionId, callback) {
-    try {
-        const response = await fetch(`${API.sensors}/${regionId}`, {
-            method: "GET",
-            headers: {
-                "Authorization": `Bearer ${globalThis.token}`
-            },
-        });
-
-        if (response.ok) {
-            callback?.(await response.json());
-            console.log("Get sensors successfully!");
-        } else {
-            console.error("Fail to get sensors.");
+export async function getSensorsByRegion(regionId) {
+    const response = await fetch(`${API.sensors}/region/${regionId}`, {
+        method: "GET",
+        headers: {
+            "Authorization": `Bearer ${globalThis.token}`
         }
-    } catch (error) {
-        console.error("Internal error:", error);
-    }
+    });
+
+    return response.ok ? await response.json() : [];
 }
 
 /**
@@ -312,27 +258,17 @@ export async function getSensorsByRegion(regionId, callback) {
  * Get freeze sensor data record, call `sensor_handle::get_sensor_data_in_range`
  *
  * @param {number} sensorId
- * @param {function([SensorData]): void} callback
- * @return {Promise<void>}
+ * @return {Promise<[SensorData]>}
  */
-export async function getSensorData(sensorId, callback) {
-    try {
-        const response = await fetch(`${API.sensors}/data/${sensorId}`, {
-            method: "GET",
-            headers: {
-                "Authorization": `Bearer ${globalThis.token}`
-            },
-        });
-
-        if (response.ok) {
-            callback?.(await response.json());
-            console.log("Get sensor data successfully!");
-        } else {
-            console.error("Fail to get sensor data.");
+export async function getSensorData(sensorId) {
+    const response = await fetch(`${API.sensors}/data/${sensorId}`, {
+        method: "GET",
+        headers: {
+            "Authorization": `Bearer ${globalThis.token}`
         }
-    } catch (error) {
-        console.error("Internal error:", error);
-    }
+    });
+
+    return response.ok ? await response.json() : [];
 }
 
 /**
@@ -340,20 +276,12 @@ export async function getSensorData(sensorId, callback) {
  *
  * @param {number} sensorId
  * @param {function([SensorData]): void} callback
- * @return {Promise<void>}
+ * @return {EventSource}
  */
-export async function streamSensorData(sensorId, callback) {
-    await fetchEventSource(`${API.sensors}/data/sse/${sensorId}`, {
-        headers: {
-            "Authorization": `Bearer ${globalThis.token}`
-        },
-        onmessage(event) {
-            callback?.(JSON.parse(event.data));
-        },
-        onerror(error) {
-            if (!(error instanceof SyntaxError)) {
-                console.error("Internal error:", error);
-            }
-        }
-    })
+export function streamSensorData(sensorId, callback) {
+    const eventSource = new EventSource(`${API.sensors}/data/sse/${sensorId}?token=${globalThis.token}`);
+
+    eventSource.onmessage = (event) => callback?.(JSON.parse(event.data));
+
+    return eventSource;
 }
