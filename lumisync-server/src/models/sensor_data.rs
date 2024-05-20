@@ -3,9 +3,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::Table;
 
-#[derive(Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Clone, Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct SensorData {
     pub id: i32,
+    pub sensor_id: i32,
     pub light: i32,
     pub temperature: f32,
     pub time: DateTime<Utc>,

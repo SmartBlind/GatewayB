@@ -1,5 +1,5 @@
 import { Dashboard, Debug, RegionList, SensorList, User, WindowList } from "./components/index.js";
-import { authUser, loginUser, streamSensorData } from "./api.js";
+import { authUser, loginUser } from "./api.js";
 
 import "./style.css";
 

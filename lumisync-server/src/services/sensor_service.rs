@@ -6,13 +6,17 @@ use rumqttc::{AsyncClient, Event, EventLoop, MqttOptions, Packet, QoS, TlsConfig
 use rumqttc::tokio_rustls::rustls::{ClientConfig, RootCertStore};
 use rustls_pemfile::{certs, Item, read_one};
 use serde::{Deserialize, Serialize};
+use tokio::sync::broadcast::Sender;
 use tokio::sync::Mutex;
 
 use crate::configs::settings::{Gateway, GatewayTopic};
 use crate::configs::storage::Storage;
+use crate::handles::sse_handle::ServiceEvent;
+use crate::handles::sse_handle::ServiceEvent::SensorDataCreate;
 use crate::models::group::Group;
+use crate::models::sensor_data::SensorData;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SensorPayload {
     #[serde(alias = "sId",alias = "tsmTuid")]
     id: String,
@@ -29,10 +33,11 @@ pub struct SensorService {
     event_loop: Arc<Mutex<EventLoop>>,
     topic: Arc<GatewayTopic>,
     storage: Arc<Storage>,
+    sender: Sender<ServiceEvent>,
 }
 
 impl SensorService {
-    pub async fn new(gateway: Gateway, storage: &Arc<Storage>) -> Result<Self, Box<dyn error::Error>> {
+    pub async fn new(gateway: Gateway, storage: &Arc<Storage>, sender: &Sender<ServiceEvent>) -> Result<Self, Box<dyn error::Error>> {
         let mut options = MqttOptions::new(&gateway.client_id, &gateway.host, gateway.port);
         options.set_keep_alive(time::Duration::from_secs(5));
 
@@ -68,6 +73,7 @@ impl SensorService {
             event_loop: Arc::new(Mutex::new(event_loop)),
             topic: Arc::new(gateway.topic.clone()),
             storage: Arc::clone(storage),
+            sender: sender.clone(),
         })
     }
 
@@ -98,16 +104,21 @@ impl SensorService {
 
         let storage_clone = Arc::clone(&self.storage);
         let event_loop_clone = Arc::clone(&self.event_loop);
+        let sender_clone = self.sender.clone();
         tokio::spawn(async move {
             loop {
                 let mut event_loop = event_loop_clone.lock().await;
                 match event_loop.poll().await {
                     Ok(notification) => match notification {
                         Event::Incoming(Packet::Publish(publish)) => {
-                            Self::handle_message(&storage_clone, &publish.payload)
-                                .await
-                                .map_err(|e| tracing::error!("Error handling message: {}", e))
-                                .unwrap();
+                            match Self::handle_message(&storage_clone, &publish.payload).await {
+                                Ok(data) => {
+                                    if let Err(e) = sender_clone.send(SensorDataCreate(data)) {
+                                        tracing::error!("Error sending event: {}", e);
+                                    }
+                                }
+                                Err(e) => tracing::error!("Error handling message: {}", e),
+                            }
                         }
                         _ => {}
                     },
@@ -119,26 +130,29 @@ impl SensorService {
         Ok(())
     }
 
-    async fn handle_message(storage: &Arc<Storage>, payload: &[u8]) -> Result<(), Box<dyn error::Error>> {
+    async fn handle_message(storage: &Arc<Storage>, payload: &[u8]) -> Result<SensorData, Box<dyn error::Error>> {
         if let Ok(payload_str) = String::from_utf8(payload.to_vec()) {
             if let Ok(data) = serde_json::from_str::<SensorPayload>(&payload_str) {
                 tracing::debug!("Receive: {:?}", data);
 
-                sqlx::query(
+                let sensor_data: SensorData = sqlx::query_as(
                     r#"
                     INSERT INTO sensor_data (sensor_id, light, temperature, time)
                         VALUES ((SELECT id from sensors WHERE name = $1), $2, $3, DATETIME($4))
+                        RETURNING *;
                     "#
                 )
                     .bind(&data.id)
                     .bind(&data.light)
                     .bind(&data.temperature)
                     .bind(DateTime::from_timestamp(data.time_stamp, 0))
-                    .execute(storage.get_pool())
+                    .fetch_one(storage.get_pool())
                     .await?;
+
+                return Ok(sensor_data)
             }
         }
 
-        Ok(())
+        Err("Failed to parse payload".into())
     }
 }

@@ -23,7 +23,7 @@ fn mean(xs: impl Iterator<Item = f64>) -> f64 {
     total / count as f64
 }
 
-pub fn most_frequent(xs: impl Iterator<Item = f64>) -> f64 {
+fn most_frequent(xs: impl Iterator<Item = f64>) -> f64 {
     let (histogram, _) = histogram(xs);
 
     histogram
@@ -33,7 +33,7 @@ pub fn most_frequent(xs: impl Iterator<Item = f64>) -> f64 {
         .unwrap()
 }
 
-pub fn histogram(xs: impl Iterator<Item = f64>) -> (HashMap<OrderedFloat<f64>, usize>, usize) {
+fn histogram(xs: impl Iterator<Item = f64>) -> (HashMap<OrderedFloat<f64>, usize>, usize) {
     let mut histogram = HashMap::<_, usize>::new();
     let mut n = 0;
 

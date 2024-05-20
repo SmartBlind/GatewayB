@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::Table;
 
-#[derive(Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Clone, Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Window {
     pub id: i32,
     pub region_id: i32,

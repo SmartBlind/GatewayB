@@ -11,6 +11,7 @@ name = "server"
 path = "src/main.rs"
 
 [dependencies]
+analyser.workspace = true
 argon2 = "0.5"
 axum = "0.7"
 axum-extra = { version = "0.9", features = ["typed-header"] }
@@ -25,7 +26,7 @@ serde_json.workspace = true
 serialport = "4.3"
 sqlx = { version = "0.7.4", features = ["runtime-tokio", "sqlite", "chrono"] }
 tokio = { workspace = true, features = ["full"] }
-tokio-stream = "0.1"
+tokio-stream = { version = "0.1", features = ["sync"] }
 toml.workspace = true
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors"] }

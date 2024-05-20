@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use axum::{middleware, Router};
 use axum::routing::{get, post};
+use tokio::sync::broadcast;
 use tower_http::cors::CorsLayer;
 
 use crate::configs::schema::SchemaManager;
@@ -11,21 +12,28 @@ use crate::handles::control_handle::{ControlState, execute_command};
 use crate::handles::region_handle::{create_region, get_regions, RegionState};
 use crate::handles::sensor_handle::{get_sensor_data, get_sensor_data_in_range, get_sensors, get_sensors_by_region, SensorState};
 use crate::handles::setting_handle::{save_setting, SettingState};
+use crate::handles::sse_handle::{sse_handler, SSEState};
 use crate::handles::user_handle::{authenticate_user, authorize_user, create_user, UserState};
 use crate::handles::window_handle::{create_window, delete_window, get_window_owners, get_windows, get_windows_by_region, update_window, WindowState};
 use crate::middlewares::auth_middleware::{auth, TokenState};
 use crate::services::actuator_service::ActuatorService;
+use crate::services::analyser_service::AnalyserService;
 use crate::services::auth_service::AuthService;
 use crate::services::sensor_service::SensorService;
 use crate::services::token_service::TokenService;
 
 pub async fn create_app(settings: &Arc<Settings>) -> Router {
+    let (sender, _receiver) = broadcast::channel(100);
     let storage = Arc::new(Storage::new(settings.database.clone(), SchemaManager::default()).await.unwrap());
 
-    let sensor_service = Arc::new(SensorService::new(settings.gateway.clone(), &storage).await.unwrap());
+    let sensor_service = Arc::new(SensorService::new(settings.gateway.clone(), &storage, &sender).await.unwrap());
     sensor_service.subscribe_all_groups().await.unwrap();
 
+    let analyser_service = Arc::new(AnalyserService::new(&storage, &sender).await.unwrap());
+    analyser_service.start_listener();
+
     let actuator_service = ActuatorService::new(settings.embedded.clone()).map(Arc::new).ok();
+
     let auth_service = Arc::new(AuthService::new());
     let token_service = Arc::new(TokenService::new(settings.auth.clone()));
 
@@ -78,6 +86,15 @@ pub async fn create_app(settings: &Arc<Settings>) -> Router {
             storage: storage.clone(),
         });
 
+    let sse = Router::new()
+        .route("/", get(sse_handler))
+        .route_layer(middleware::from_fn_with_state(token_state.clone(), auth))
+        .with_state(SSEState {
+            actuator_service: actuator_service.clone(),
+            storage: storage.clone(),
+            sender: sender.clone(),
+        });
+
     // for debug
     let control = Router::new()
         .route("/:command", get(execute_command))
@@ -92,5 +109,6 @@ pub async fn create_app(settings: &Arc<Settings>) -> Router {
         .nest("/regions", regions)
         .nest("/windows", windows)
         .nest("/sensors", sensors)
+        .nest("/event", sse)
         .layer(CorsLayer::permissive())
 }

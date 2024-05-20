@@ -15,6 +15,10 @@ toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 
+[workspace.dependencies.analyser]
+package = "lumisync-analyser"
+path = "./lumisync-analyser"
+
 [profile.dev]
 opt-level = 1
 

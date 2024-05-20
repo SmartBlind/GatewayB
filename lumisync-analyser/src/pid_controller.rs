@@ -12,7 +12,7 @@ pub struct PIDController {
 }
 
 impl PIDController {
-    fn new(kp: f64, ki: f64, kd: f64, set_point: f64) -> Self {
+    pub fn new(kp: f64, ki: f64, kd: f64, set_point: f64) -> Self {
         Self {
             kp,
             ki,
@@ -23,7 +23,7 @@ impl PIDController {
         }
     }
 
-    fn update(&mut self, measurement: f64, dt: f64) -> f64 {
+    pub fn update(&mut self, measurement: f64, dt: f64) -> f64 {
         let error = self.set_point - measurement;
         let derivative = (error - self.previous_error) / dt;
 
