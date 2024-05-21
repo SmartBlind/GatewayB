@@ -113,7 +113,7 @@ impl SensorService {
                         Event::Incoming(Packet::Publish(publish)) => {
                             match Self::handle_message(&storage_clone, &publish.payload).await {
                                 Ok(data) => {
-                                    if let Err(e) = sender_clone.send(SensorDataCreate(data)) {
+                                    if let Err(e) = sender_clone.send(SensorDataCreate(vec![data])) {
                                         tracing::error!("Error sending event: {}", e);
                                     }
                                 }

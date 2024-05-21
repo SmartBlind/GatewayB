@@ -20,12 +20,10 @@ class SensorGraph extends EventTarget {
                 datasets: [{
                     label: "Temperature (°C)",
                     data: this.#model.temperature,
-                    borderColor: "rgb(136, 243, 72)",
                     tension: 0.4
                 }, {
                     label: "Light (lux)",
                     data: this.#model.light,
-                    borderColor: "rgb(255, 219, 99)",
                     tension: 0.4
                 }]
             },

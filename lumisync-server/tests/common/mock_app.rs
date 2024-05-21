@@ -8,12 +8,14 @@ use lumisync_server::configs::settings::{Auth, Database};
 use lumisync_server::configs::storage::Storage;
 use lumisync_server::handles::region_handle::{create_region, get_regions, RegionState};
 use lumisync_server::handles::sensor_handle::{create_sensor, get_sensors, get_sensors_by_region, SensorState};
+use lumisync_server::handles::setting_handle::{create_setting, get_settings, get_settings_by_region, SettingState};
 use lumisync_server::handles::user_handle::{authenticate_user, authorize_user, create_user, UserState};
 use lumisync_server::handles::window_handle::{create_window, delete_window, get_windows, get_windows_by_region, update_window, WindowState};
 use lumisync_server::middlewares::auth_middleware::{auth, TokenState};
 use lumisync_server::models::group::Group;
 use lumisync_server::models::region::Region;
 use lumisync_server::models::sensor::Sensor;
+use lumisync_server::models::setting::Setting;
 use lumisync_server::models::user::User;
 use lumisync_server::models::window::Window;
 use lumisync_server::services::auth_service::AuthService;
@@ -159,6 +161,24 @@ impl MockApp {
         self
     }
 
+    pub async fn with_setting_handle(mut self) -> Self {
+        self.router = self.router
+            .merge(
+                Router::new()
+                    .route("/setting", get(get_settings).post(create_setting))
+                    .route("/setting/region/:region_id", get(get_settings_by_region))
+                    .route_layer(middleware::from_fn_with_state(TokenState {
+                        token_service: self.token_service.clone(),
+                        storage: self.storage.clone(),
+                    }, auth))
+                    .with_state(SettingState {
+                        storage: self.storage.clone(),
+                    })
+            );
+
+        self
+    }
+
     pub async fn create_test_group(&self) -> Group {
         sqlx::query_as::<_, Group>("INSERT INTO groups (name) VALUES ('sample') RETURNING *;")
             .fetch_one(self.storage.get_pool())
@@ -229,11 +249,26 @@ impl MockApp {
             .await
             .unwrap();
 
-        sqlx::query("INSERT INTO regions_sensors_link (region_id, sensor_id) VALUES (1, 1);")
+        sensor
+    }
+
+    pub async fn create_test_setting(&self) -> Setting {
+        let setting = sqlx::query_as::<_, Setting>(
+            r#"
+            INSERT INTO settings (user_id, light, temperature, start, end, interval)
+                VALUES (1, 100, 22.5, DATETIME('now'), DATETIME('now', '+03:30'), 0)
+                RETURNING *;
+            "#
+        )
+            .fetch_one(self.storage.get_pool())
+            .await
+            .unwrap();
+
+        sqlx::query("INSERT INTO regions_settings_link (region_id, setting_id) VALUES (1, 1);")
             .execute(self.storage.get_pool())
             .await
             .unwrap();
 
-        sensor
+        setting
     }
 }

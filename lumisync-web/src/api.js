@@ -64,7 +64,7 @@ export async function registerUser(data) {
  * @param {function(string): void} callback
  * @return {Promise<string>}
  */
-export async function authUser(callback) {
+export async function authUser() {
     const response = await fetch(`${API.users}/authorize`, {
         method: "GET",
         headers: {
@@ -142,25 +142,43 @@ export async function createRegion(data) {
     return await response.json();
 }
 
-export async function saveSettings(data, callback) {
-    try {
-        const response = await fetch(API.settings, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(data)
-        });
+/**
+ * @typedef Setting
+ * @property {number} id - The setting id.
+ * @property {number} light - The expected light intensity.
+ * @property {number} temperature - The expected temperature.
+ * @property {Date} start - The start time of this setting.
+ * @property {Date} end - The end time of this setting.
+ */
 
-        if (response.ok) {
-            callback?.();
-            console.log("Configuration saved successfully!");
-        } else {
-            console.error("Failed to save configuration.");
+/**
+ * Get all settings control by current user, call `setting_handle::get_setting`
+ *
+ * @return {Promise<[Setting]>}
+ */
+export async function getSettings() {
+    const response = await fetch(API.settings, {
+        method: "GET",
+        headers: {
+            "Authorization": `Bearer ${globalThis.token}`
         }
-    } catch (error) {
-        console.error("Internal error:", error);
-    }
+    });
+
+    return response.ok ? await response.json() : [];
+}
+
+export async function saveSettings(data) {
+    const response = await fetch(API.settings, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    });
+
+    if (!response.ok) throw new Error("Fail to create settings.");
+
+    return await response.json();
 }
 
 /**

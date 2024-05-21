@@ -30,3 +30,6 @@ dist
 
 # Ignore migrations files
 migrations
+
+# Ignore models
+models

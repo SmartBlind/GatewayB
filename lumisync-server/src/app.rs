@@ -11,7 +11,7 @@ use crate::configs::storage::Storage;
 use crate::handles::control_handle::{ControlState, execute_command};
 use crate::handles::region_handle::{create_region, get_regions, RegionState};
 use crate::handles::sensor_handle::{get_sensor_data, get_sensor_data_in_range, get_sensors, get_sensors_by_region, SensorState};
-use crate::handles::setting_handle::{save_setting, SettingState};
+use crate::handles::setting_handle::{get_settings, get_settings_by_region, create_setting, SettingState};
 use crate::handles::sse_handle::{sse_handler, SSEState};
 use crate::handles::user_handle::{authenticate_user, authorize_user, create_user, UserState};
 use crate::handles::window_handle::{create_window, delete_window, get_window_owners, get_windows, get_windows_by_region, update_window, WindowState};
@@ -54,7 +54,8 @@ pub async fn create_app(settings: &Arc<Settings>) -> Router {
         });
 
     let settings = Router::new()
-        .route("/", post(save_setting))
+        .route("/", get(get_settings).post(create_setting))
+        .route("/region/:region_id", get(get_settings_by_region))
         .with_state(SettingState {
             storage: storage.clone(),
         });

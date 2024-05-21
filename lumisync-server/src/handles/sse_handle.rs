@@ -16,8 +16,8 @@ use crate::services::actuator_service::ActuatorService;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ServiceEvent {
-    SensorDataCreate(SensorData),
-    WindowUpdate(Window),
+    SensorDataCreate(Vec<SensorData>),
+    WindowUpdate(Vec<Window>),
 }
 
 #[derive(Clone)]

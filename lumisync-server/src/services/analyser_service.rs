@@ -10,6 +10,7 @@ use analyser::pid_controller::PIDController;
 
 use crate::configs::storage::Storage;
 use crate::handles::sse_handle::ServiceEvent;
+use crate::models::region::Region;
 use crate::models::window::Window;
 
 #[derive(Clone)]
@@ -35,12 +36,42 @@ impl AnalyserService {
         tokio::spawn(async move {
             while let Ok(event) = receiver.recv().await {
                 if let ServiceEvent::SensorDataCreate(sensor_data) = event {
-                    let dt = Utc::now().time() - sensor_data.time.time();
+                    for data in sensor_data.iter() {
+                        let dt = Utc::now().time() - data.time.time();
 
-                    owned
-                        .update(sensor_data.id, sensor_data.light, dt.num_seconds())
-                        .await
-                        .unwrap();
+                        let region: Region = sqlx::query_as(
+                            r#"
+                            SELECT regions.* FROM sensors
+                                JOIN regions ON sensors.region_id = regions.id
+                                WHERE sensors.id = $1;
+                            "#
+                        )
+                            .bind(&data.sensor_id)
+                            .fetch_one(owned.storage.get_pool())
+                            .await
+                            .unwrap();
+
+                        let average_light = (data.light + region.light) / 2;
+                        let average_temperature = (data.temperature + region.temperature) / 2.0;
+
+                        sqlx::query(
+                            r#"
+                            UPDATE regions SET light = $1, temperature = $2
+                                WHERE id = $3;
+                            "#
+                        )
+                            .bind(&average_light)
+                            .bind(&average_temperature)
+                            .bind(&data.sensor_id)
+                            .execute(owned.storage.get_pool())
+                            .await
+                            .unwrap();
+
+                        owned
+                            .update(region.id, average_light, dt.num_seconds())
+                            .await
+                            .unwrap();
+                    }
                 }
             }
         });
@@ -55,7 +86,7 @@ impl AnalyserService {
             // Determine new state for the blinds based on control signal
             let new_state = (control_signal / 100.0).clamp(0.0, 1.0);
 
-            let updated_window: Window = sqlx::query_as(
+            let updated_windows: Vec<Window> = sqlx::query_as(
                 r#"
                 UPDATE windows SET state = $1
                     WHERE region_id = $2
@@ -64,10 +95,10 @@ impl AnalyserService {
             )
                 .bind(&new_state)
                 .bind(&region_id)
-                .fetch_one(self.storage.get_pool())
+                .fetch_all(self.storage.get_pool())
                 .await?;
 
-            let event = ServiceEvent::WindowUpdate(updated_window);
+            let event = ServiceEvent::WindowUpdate(updated_windows);
 
             self.sender.send(event)?;
         }

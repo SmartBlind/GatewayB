@@ -14,13 +14,13 @@ pub struct RegionSettingTable;
 
 impl Table for RegionSettingTable {
     fn name(&self) -> &'static str {
-        "regions_settings"
+        "regions_settings_link"
     }
 
     fn create(&self) -> String {
         String::from(
             r#"
-            CREATE TABLE IF NOT EXISTS regions_settings (
+            CREATE TABLE IF NOT EXISTS regions_settings_link (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 region_id INTEGER NOT NULL,
                 setting_id INTEGER NOT NULL,
@@ -32,7 +32,7 @@ impl Table for RegionSettingTable {
     }
 
     fn dispose(&self) -> String {
-        String::from("DROP TABLE IF EXISTS regions_settings;")
+        String::from("DROP TABLE IF EXISTS regions_settings_link;")
     }
 
     fn dependencies(&self) -> Vec<&'static str> {

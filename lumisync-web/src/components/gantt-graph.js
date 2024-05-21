@@ -11,6 +11,7 @@ import {
     endOfSecond, endOfMinute, endOfHour, endOfDay,
     endOfWeek, endOfMonth, endOfQuarter, endOfYear
 } from "date-fns";
+import { getSettings } from "../api.js";
 
 const FORMATS = {
     datetime: "MMM d, yyyy, h:mm:ss aaaa",
@@ -112,21 +113,19 @@ _adapters._date.override({
     }
 });
 
-class GanttGraph extends HTMLElement {
+class GanttGraph extends EventTarget {
     static observedAttributes = ["window-id", "target-type", "target-id"];
+    #chart;
 
-    constructor() {
+    constructor(container) {
         super();
-        this.canvas = this.appendChild(document.createElement("canvas"));
+        const canvas = container.appendChild(document.createElement("canvas"));
+        this.#chart = this.createChart(canvas);
     }
 
-    connectedCallback() {
-        this.renderChart(this.canvas);
-    }
-
-    renderChart(ctx) {
+    createChart(canvas) {
         const separator = {
-            id: 'separator',
+            id: "separator",
             afterDatasetDraw(chart, args, options) {
                 const {
                     ctx,
@@ -166,9 +165,9 @@ class GanttGraph extends HTMLElement {
                 ctx.fillText("Now", x.getPixelForValue(new Date()), bottom + 15);
                 ctx.restore();
             }
-        }
+        };
 
-        this.chart = new Chart(ctx, {
+        return new Chart(canvas, {
             type: "bar",
             data: {
                 datasets: [{
@@ -239,8 +238,14 @@ class GanttGraph extends HTMLElement {
             plugins: [separator]
         });
     }
-}
 
-customElements.define("lumisync-gantt-graph", GanttGraph);
+    updateCanvas() {
+        getSettings()
+    }
+
+    dispose() {
+
+    }
+}
 
 export default GanttGraph;

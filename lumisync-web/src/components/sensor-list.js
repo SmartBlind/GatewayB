@@ -2,7 +2,6 @@ import { getSensors } from "../api.js";
 import { Store } from "./index.js";
 import LoadingSpinner from "./loading.js";
 import Sensor from "./sensor.js";
-import Window from "./window.js";
 
 const LOAD_SENSORS_REQUEST = "LOAD_SENSORS_REQUEST";
 const LOAD_SENSORS_SUCCESS = "LOAD_SENSORS_SUCCESS";
@@ -121,7 +120,7 @@ class SensorList extends HTMLElement {
         this.#store.dispatch(loadSensorsRequest());
 
         try {
-            this.#store.dispatch(loadSensorsSuccess(await getSensors()))
+            this.#store.dispatch(loadSensorsSuccess(await getSensors()));
         } catch (error) {
             console.error("Internal error:", error);
         }

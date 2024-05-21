@@ -1,5 +1,6 @@
 import { getSensorsByRegion, getWindowsByRegion } from "../api.js";
 import styleSheet from "./region.css?raw";
+import GanttGraph from "./gantt-graph.js";
 
 class Region extends HTMLElement {
     static observedAttributes = ["region-id"];
@@ -98,6 +99,10 @@ class Region extends HTMLElement {
             </ul>
           </div>
         `;
+        const wrapper = container.appendChild(document.createElement("div"));
+        const header = wrapper.appendChild(document.createElement("h3"));
+        header.textContent = "Settings";
+        this.graph ??= new GanttGraph(wrapper);
     }
 
     async loadRegionData(id) {

@@ -3,10 +3,12 @@ use std::time::Duration;
 use axum::body::{Body, to_bytes};
 use axum::http;
 use axum::http::{Request, StatusCode};
+use chrono::Utc;
 use tower::ServiceExt;
 
 use lumisync_server::handles::region_handle::RegionBody;
 use lumisync_server::handles::sensor_handle::SensorBody;
+use lumisync_server::handles::setting_handle::SettingBody;
 use lumisync_server::handles::user_handle::{UserLoginBody, UserRegisterBody};
 use lumisync_server::handles::window_handle::WindowBody;
 
@@ -505,4 +507,102 @@ async fn test_sensor_get_by_region_router() {
     let res_body_str = String::from_utf8(res_body.to_vec()).unwrap();
 
     assert!(res_body_str.contains(&sensor.name));
+}
+
+#[tokio::test]
+async fn test_setting_create_router() {
+    let mut app = MockApp::new().await;
+    app = app.with_setting_handle().await;
+    app.create_test_group().await;
+    app.create_test_user().await;
+    app.create_test_region().await;
+
+    let req_body = serde_json::to_string(&SettingBody {
+        light: 200,
+        temperature: 25.0,
+        start: Utc::now(),
+        end: Utc::now() + chrono::Duration::hours(4),
+        interval: 0,
+    }).unwrap();
+
+    let response = app.router
+        .oneshot(
+            Request::builder()
+                .method(http::Method::POST)
+                .uri("/setting")
+                .header("Content-Type", "application/json")
+                .header("Authorization", format!("Bearer {}", app.token))
+                .body(Body::from(req_body))
+                .unwrap()
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let res_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let res_body_str = String::from_utf8(res_body.to_vec()).unwrap();
+
+    assert!(res_body_str.contains(&200.to_string()));
+    assert!(res_body_str.contains(&25.0.to_string()));
+}
+
+#[tokio::test]
+async fn test_setting_get_router() {
+    let mut app = MockApp::new().await;
+    app = app.with_setting_handle().await;
+    app.create_test_group().await;
+    app.create_test_user().await;
+    app.create_test_region().await;
+    let setting = app.create_test_setting().await;
+
+    let response = app.router
+        .oneshot(
+            Request::builder()
+                .method(http::Method::GET)
+                .uri("/setting")
+                .header("Authorization", format!("Bearer {}", app.token))
+                .body(Body::empty())
+                .unwrap()
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let res_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let res_body_str = String::from_utf8(res_body.to_vec()).unwrap();
+
+    assert!(res_body_str.contains(&setting.light.to_string()));
+    assert!(res_body_str.contains(&setting.temperature.to_string()));
+}
+
+#[tokio::test]
+async fn test_setting_get_by_region_router() {
+    let mut app = MockApp::new().await;
+    app = app.with_setting_handle().await;
+    app.create_test_group().await;
+    app.create_test_user().await;
+    let region = app.create_test_region().await;
+    let setting = app.create_test_setting().await;
+
+    let response = app.router
+        .oneshot(
+            Request::builder()
+                .method(http::Method::GET)
+                .uri(format!("/setting/region/{}", region.id))
+                .header("Authorization", format!("Bearer {}", app.token))
+                .body(Body::empty())
+                .unwrap()
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let res_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let res_body_str = String::from_utf8(res_body.to_vec()).unwrap();
+
+    assert!(res_body_str.contains(&setting.light.to_string()));
+    assert!(res_body_str.contains(&setting.temperature.to_string()));
 }

@@ -1,6 +1,5 @@
 use crate::models::group::GroupTable;
 use crate::models::region::RegionTable;
-use crate::models::region_sensor::RegionSensorTable;
 use crate::models::region_setting::RegionSettingTable;
 use crate::models::sensor::SensorTable;
 use crate::models::sensor_data::SensorDataTable;
@@ -72,7 +71,7 @@ impl Default for SchemaManager {
                 Box::new(RegionSettingTable),
                 // Reference
                 Box::new(UserRegionTable),
-                Box::new(RegionSensorTable),
+                Box::new(RegionSettingTable),
             ]
         )
     }

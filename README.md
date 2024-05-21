@@ -55,10 +55,10 @@ INSERT INTO groups (name) VALUES ('sample');
 INSERT INTO users (group_id, email, password, role) VALUES (1, 'test@test.com', '$argon2id$v=19$m=19456,t=2,p=1$zk5JmuovvG7B6vyGGmLxDQ$qoqCpKkqrgoVjeTGa5ewrqFpuPUisTCDnEiPz6Dh/oc', 'admin');
 
 -- Insert sample data into 'regions'
-INSERT INTO regions (group_id, name, light, temperature) VALUES (1, 'Living Room', 6, 22.5);
+INSERT INTO regions (group_id, name, light, temperature) VALUES (1, 'Living Room', 100, 22.5);
 
 -- Insert sample data into 'settings'
-INSERT INTO settings (user_id, light, temperature) VALUES (1, 6, 22.5);
+INSERT INTO settings (user_id, light, temperature, start, end, interval) VALUES (1, 100, 22.5, DATETIME('now'), DATETIME('now', '+03:30'), 0);
 
 -- Insert sample data into 'windows'
 INSERT INTO windows (region_id, name, state) VALUES (1, 'Living Room Right Window', 0);
@@ -69,8 +69,8 @@ INSERT INTO sensors (region_id, name) VALUES (1, 'SENSOR-MOCK');
 -- Insert sample data into 'users_regions_link'
 INSERT INTO users_regions_link (user_id, region_id) VALUES (1, 1);
 
--- Insert sample data into 'regions_sensors_link'
-INSERT INTO regions_sensors_link (region_id, sensor_id) VALUES (1, 1);
+-- Insert sample data into 'regions_settings_link'
+INSERT INTO regions_settings_link (region_id, setting_id) VALUES (1, 1);
 ```
 
 3. Adjust config file for `configs/development.toml` with database url.
@@ -142,7 +142,7 @@ windows { int id "PK" int region_id "FK" string name "UK" float state }
 sensors { int id "PK" int region_id "FK" string name "UK" }
 sensor_data { int id "PK" int sensor_id "FK" int light float temperature datetime time }
 users_regions_link { int id "PK" int user_id "FK" int region_id "FK" }
-regions_sensors_link { int id "PK" int region_id "FK" int sensor_id "FK" }
+regions_settings_link { int id "PK" int region_id "FK" int setting_id "FK" }
 
 groups ||--|{ users : "group_id"
 groups ||--|{ regions : "group_id"
@@ -152,6 +152,6 @@ regions ||--|{ sensors : "region_id"
 users ||--|{ users_regions_link : "user_id"
 regions ||--|{ users_regions_link : "region_id"
 sensors ||--o{ sensor_data : "sensor_id"
-regions ||--|{ regions_sensors_link : "region_id"
-sensors ||--|{ regions_sensors_link : "sensor_id"
+regions ||--|{ regions_settings_link : "region_id"
+settings ||--|{ regions_settings_link : "setting_id"
 ```
