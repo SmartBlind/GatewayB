@@ -5,7 +5,9 @@
     "lumisync-web"
   ],
   "scripts": {
-    "web": "npm run dev -w=lumisync-web"
+    "run": "npm run dev -w=lumisync-web",
+    "preview": "npm run preview -w=lumisync-web",
+    "build": "npm run build -w=lumisync-web"
   },
   "repository": {
     "type": "git",
