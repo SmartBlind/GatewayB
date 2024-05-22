@@ -56,6 +56,7 @@ pub async fn create_app(settings: &Arc<Settings>) -> Router {
     let settings = Router::new()
         .route("/", get(get_settings).post(create_setting))
         .route("/region/:region_id", get(get_settings_by_region))
+        .route_layer(middleware::from_fn_with_state(token_state.clone(), auth))
         .with_state(SettingState {
             storage: storage.clone(),
         });

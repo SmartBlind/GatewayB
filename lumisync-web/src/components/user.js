@@ -102,22 +102,22 @@ class User extends HTMLElement {
 
         const formData = Object.fromEntries(Array.from(new FormData(event.target).entries()));
 
-        switch (this.#state) {
-            case STATE.login:
-                await loginUser(formData, data => {
-                    globalThis.token = data;
+        try {
+            switch (this.#state) {
+                case STATE.login:
+                    globalThis.token = await loginUser(formData);
                     self.dispatchEvent(new Event("login"));
-                });
-                break;
-            case STATE.register:
-                await registerUser(formData, data => {
-                    globalThis.token = data;
+                    break;
+                case STATE.register:
+                    globalThis.token = await registerUser(formData);
                     self.dispatchEvent(new Event("login"));
-                });
-                break;
-            default:
-                console.error("Unexpected user state.");
-                break;
+                    break;
+                default:
+                    console.error("Unexpected user state.");
+                    break;
+            }
+        } catch (error) {
+            console.error("Internal error:", error);
         }
     }
 }

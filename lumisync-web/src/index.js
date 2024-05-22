@@ -1,4 +1,4 @@
-import { Dashboard, Debug, RegionList, SensorList, User, WindowList } from "./components/index.js";
+import { Dashboard, Debug, RegionList, SensorList, SettingList, User, WindowList } from "./components/index.js";
 import { authUser, loginUser } from "./api.js";
 
 import "./style.css";
@@ -7,7 +7,7 @@ import "./style.css";
 export const NAV_TARGET = {
     "region": {
         event: new CustomEvent("navigate", { detail: "region" }),
-        groups: new Set(["sensor", "window"]),
+        groups: new Set(["sensor", "window", "setting"]),
         element: new RegionList(),
     },
     "sensor": {
@@ -16,8 +16,12 @@ export const NAV_TARGET = {
     },
     "window": {
         event: new CustomEvent("navigate", { detail: "window" }),
-        groups: new Set(["debug"]),
+        groups: new Set(["debug", "setting"]),
         element: new WindowList(),
+    },
+    "setting": {
+        event: new CustomEvent("navigate", { detail: "setting" }),
+        element: new SettingList(),
     },
     "debug": {
         event: new CustomEvent("navigate", { detail: "debug" }),

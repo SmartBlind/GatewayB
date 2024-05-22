@@ -8,32 +8,68 @@ form {
   gap: 0.75rem;
 }
 
+.line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 label {
-  font-weight: bold;
-  display: block;
+  font-weight: normal;
   color: black;
 }
 
 input[type="text"],
 input[type="number"],
-input[type="submit"] {
+input[type="submit"],
+input[type="checkbox"] {
   box-sizing: border-box;
-  width: 100%;
   padding: 0.5rem;
   border: 1px solid #ccc;
   border-radius: 5px;
 }
 
-input[type="submit"] {
-  display: block;
-  width: calc(100% - 1rem);
-  margin: 0.75rem auto;
+input[type="checkbox"] {
+  width: auto;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.icon {
   cursor: pointer;
-  transition: background-color 0.3s;
-  color: white;
+  font-size: 1.5rem;
+}
+
+.edit-btn, .save-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.edit-btn {
   background-color: #007bff;
+  color: white;
+  transition: background-color 0.3s;
+
+   &:hover {
+     background-color: #0056b3;
+   }
+}
+
+.save-btn {
+  background-color: #28a745;
+  color: white;
+  display: none;
+  transition: background-color 0.3s;
 
   &:hover {
-    background-color: #0056b3;
+    background-color: #218838;
   }
 }

@@ -167,7 +167,7 @@ export async function getSettings() {
     return response.ok ? await response.json() : [];
 }
 
-export async function saveSettings(data) {
+export async function createSetting(data) {
     const response = await fetch(API.settings, {
         method: "POST",
         headers: {

@@ -7,6 +7,7 @@ export { default as SensorGraph } from "./sensor-graph.js";
 export { default as Sensor } from "./sensor.js";
 export { default as SensorList } from "./sensor-list.js";
 export { default as Setting } from "./setting.js";
+export { default as SettingList } from "./setting-list.js";
 export { default as User } from "./user.js";
 export { default as Window } from "./window.js";
 export { default as WindowControl } from "./window-control.js";
