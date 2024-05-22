@@ -1,0 +1,87 @@
+name: Rust release
+
+on:
+  push:
+    # Pattern matched against refs/tags
+    tags: [ "*" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        build: [linux, macos, windows]
+        include:
+          - build: linux
+            os: ubuntu-latest
+            toolchain: stable
+            profile: default
+            target: x86_64-unknown-linux-gnu
+            archive-name: smartblinds-linux.tar.gz
+          - build: macos
+            os: macos-latest
+            toolchain: stable
+            profile: default
+            target: x86_64-apple-darwin
+            archive-name: smartblinds-macos.tar.gz
+          - build: windows
+            os: windows-latest
+            toolchain: stable
+            profile: default
+            target: x86_64-pc-windows-msvc
+            archive-name: smartblinds-windows.zip
+      fail-fast: false
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Setup rust toolchain
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none --profile minimal
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          rustup toolchain install ${{ matrix.toolchain }} --profile ${{ matrix.profile }} --target ${{ matrix.target }}
+          rustup default ${{ matrix.toolchain }}
+
+          echo "rustup_version=$(rustup --version)" >> $GITHUB_OUTPUT
+          echo "cargo_version=$(cargo --version)" >> $GITHUB_OUTPUT
+          echo "rustc_version=$(rustc --version)" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies (linux)
+        if: matrix.build == 'linux'
+        run: sudo apt-get install libudev-dev
+
+      - name: Build binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Strip binary (linux and macos)
+        if: matrix.build == 'linux' || matrix.build == 'macos'
+        run: strip "target/${{ matrix.target }}/release/server"
+
+      - name: Build archive
+        shell: bash
+        run: |
+          mkdir archive
+          cp LICENSE README.md archive/
+          cd archive
+          if [ "${{ matrix.build }}" = "windows" ]; then
+            cp "../target/${{ matrix.target }}/release/server.exe" ./
+            cp "../target/${{ matrix.target }}/release/mock.exe" ./
+            7z a "${{ matrix.archive-name }}" LICENSE README.md server.exe
+          else
+            cp "../target/${{ matrix.target }}/release/server" ./
+            cp "../target/${{ matrix.target }}/release/mock" ./
+            tar -czf "${{ matrix.archive-name }}" LICENSE README.md server
+          fi
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.archive-name }}
+          path: archive/${{ matrix.archive-name }}
