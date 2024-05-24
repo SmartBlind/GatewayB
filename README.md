@@ -76,8 +76,8 @@ Follow these steps to assemble the sensor and blinds correctly.
 
 2. Assemble the Sensor:
 
-   > [!NOTE]  
-   > If using ready-made sensor provider can skip the step
+> [!NOTE]  
+> If using ready-made sensor provider can skip the step
 
    - Connect the LDR and its corresponding resistor to an analog pin on the
    Arduino Nano.
