@@ -74,10 +74,10 @@ Follow these steps to assemble the sensor and blinds correctly.
 
    - Assemble conductive devices to connect blinds or curtains.
 
-2. Assemble the Sensor:
-
 > [!NOTE]  
-> If using ready-made sensor provider can skip the step
+> If using ready-made sensor provider can skip the `step 2`
+
+2. Assemble the Sensor:
 
    - Connect the LDR and its corresponding resistor to an analog pin on the
    Arduino Nano.
